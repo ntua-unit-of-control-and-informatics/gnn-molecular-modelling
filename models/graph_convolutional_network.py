@@ -12,7 +12,6 @@ class GraphConvolutionalNetwork(nn.Module):
                  hidden_dims: Iterable[int],
                  output_dim: Optional[int] = 1,
                  activation: Optional[nn.Module] = nn.ReLU(),
-#                  final_activation: Optional[Union[str, None]] = None,
                  dropout: Union[float, Iterable[float]] = 0.5,
                  graph_norm: Optional[bool] = False,
                  pooling: Optional[str] = 'mean',
@@ -36,10 +35,7 @@ class GraphConvolutionalNetwork(nn.Module):
             raise TypeError("output_dim must be of type int")
         
         if not isinstance(activation, nn.Module):
-            raise TypeError("activation must be a torch.nn.Module")
-            
-#         if not (final_activation is None or isinstance(final_activation, str)):
-#             raise TypeError("final_activation must be of type str or None")            
+            raise TypeError("activation must be a torch.nn.Module")     
         
         if not (isinstance(dropout, float) or isinstance(dropout, Iterable)):
             raise TypeError("dropout must be either of type float or Iterable")
@@ -66,7 +62,6 @@ class GraphConvolutionalNetwork(nn.Module):
         self.hidden_dims = hidden_dims
         self.output_dim = output_dim
         self.activation = activation
-#         self.final_activation = final_activation
         self.dropout_probabilities = [dropout]*len(hidden_dims) if isinstance(dropout, float) else dropout
         self.graph_norm = graph_norm
         self.pooling = pooling
@@ -93,15 +88,9 @@ class GraphConvolutionalNetwork(nn.Module):
         
         # Apply Xavier initialization to fc
         init.xavier_uniform_(self.fc.weight)
-        init.zeros_(self.fc.bias)
-        
-        self.fc1 = nn.Linear(hidden_dims[-1], 128)
-        self.fc2 = nn.Linear(128, output_dim)
-        
-        
-        
-          
-        
+        init.zeros_(self.fc.bias)    
+
+
     def forward(self, x, edge_index, batch):
 
         for i, conv_layer in enumerate(self.conv_layers):
@@ -113,20 +102,9 @@ class GraphConvolutionalNetwork(nn.Module):
         
         x = self._pooling_function(x, batch)
         x = self.fc(x)
-        
-#         x = self.fc1(x)
-#         x = self.fc2(x)
-        
-#         if self.final_activation is None:
-#             pass
-#         if self.final_activation=='sigmoid':
-#             x = F.sigmoid(x)
-#         elif self.final_activation=='softmax':
-#             x = F.softmax(x, dim=-1)
-#         else:
-#             raise NotImplementedError(f'"{self.final_activation}" is not supported as a final activation function.')
-        
+
         return x
+    
     
     def _pooling_function(self, x, batch):
 
