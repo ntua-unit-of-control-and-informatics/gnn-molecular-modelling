@@ -97,8 +97,8 @@ class GraphAttentionNetwork(nn.Module):
         # Initialise Graph Norm Layers
         if graph_norm:
             self.gn_layers = nn.ModuleList()
-            for hidden_dim in hidden_dims:
-                gn_layer = GraphNorm(hidden_dim)
+            for hidden_dim, num_heads in zip(hidden_dims, self.heads):
+                gn_layer = GraphNorm(hidden_dim*num_heads)
                 self.gn_layers.append(gn_layer)
         
         # Initialise Fully Connected Layer
