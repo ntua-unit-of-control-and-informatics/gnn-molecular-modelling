@@ -78,7 +78,7 @@ class GraphAttentionNetwork(nn.Module):
 
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
-        self.heads = [heads]*len(hidden_dims) if isinstance(dropout, int) else heads
+        self.heads = [heads]*len(hidden_dims) if isinstance(heads, int) else heads
         self.output_dim = output_dim
         self.activation = activation
         self.dropout_probabilities = [dropout]*len(hidden_dims) if isinstance(dropout, float) else dropout
@@ -102,7 +102,7 @@ class GraphAttentionNetwork(nn.Module):
                 self.gn_layers.append(gn_layer)
         
         # Initialise Fully Connected Layer
-        self.fc = nn.Linear(hidden_dims[-1], output_dim)
+        self.fc = nn.Linear(hidden_dims[-1]*self.heads[-1], output_dim)
 
         # Apply Xavier initialization to fc
         init.xavier_uniform_(self.fc.weight)
