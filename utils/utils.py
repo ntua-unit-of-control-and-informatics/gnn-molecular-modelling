@@ -1,6 +1,7 @@
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
+import random
 
 
 def class_balanced_random_split(X, y, seed=None, test_ratio_per_class=0.15):
@@ -48,6 +49,9 @@ def class_balanced_random_split(X, y, seed=None, test_ratio_per_class=0.15):
             train_idx, test_idx = indices.copy(), []
         train_indices.extend(train_idx)
         test_indices.extend(test_idx)
+    
+    random.shuffle(train_indices)
+    random.shuffle(test_indices)
 
 
     if isinstance(X, list):
