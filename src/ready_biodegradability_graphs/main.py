@@ -198,6 +198,8 @@ if __name__ == '__main__':
         kfold = KFold(n_splits=args.cv_folds, shuffle=True, random_state=args.seed)
         for fold_idx, (train_index, val_index) in enumerate(kfold.split(train_val_dataset)):
 
+            logging.info(f'CV Fold {fold_idx+1}:\n')
+
 
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
@@ -349,6 +351,13 @@ if __name__ == '__main__':
         # Write dictionary to a JSON file
         with open(new_model_dir/'args.json', 'w') as json_file:
             json.dump(args_dict, json_file)
+    
+
+    if not args.inference:
+        logging.info(f'{model_dir_prefix}ID: {new_id}\n')
+        finish_datetime = datetime.datetime.now()
+        logging.info("End Time: %s", finish_datetime.strftime("%H:%M:%S"))
+
         
 
     [logging.root.removeHandler(handler) for handler in logging.root.handlers[:]]
