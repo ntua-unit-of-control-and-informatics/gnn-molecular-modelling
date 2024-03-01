@@ -27,39 +27,15 @@ def get_args_parser():
     parser.add_argument('--graph_norm', action='store_true', default=False, help='graph normalization (default: False)')
     parser.add_argument('--pooling', type=str, default='mean', choices=['mean', 'add', 'max'], help='type of pooling to be applied in the graph network')
     parser.add_argument('--loss_weights', nargs=2, type=float, default=[1.0, 1.0], help='loss weight per class')
-
     parser.add_argument('--smoothing', nargs=2, type=float, default=[0.0, 0.0], help='how much to smoothing to apply to each class label')
-    
-
     parser.add_argument('--no_tqdm', action='store_true', default=False, help='disable/silence tqdm')
-
-    # parser.add_argument("--use-validation-set", action="store_true", help="Use a validation set (only applicable if cross-validation is disabled)")
-
     parser.add_argument('--cross_validation', action='store_true', default=False, help='enables Cross-Validation')
     parser.add_argument('--cv_folds', type=int, default=5, help='number of cross-validation folds')
     parser.add_argument('--refit', action='store_true', default=False, help='refit on both train and validation data to evaluate on test set')
-
     parser.add_argument('--val_split_percentage', type=float, default=0.15, help='percentage of dataset to be used for validation')
-    parser.add_argument('--test_split_percentage', type=float, default=0.15, help='percentage of dataset to be used for testing')
-
+    # parser.add_argument('--test_split_percentage', type=float, default=0.15, help='percentage of dataset to be used for testing')
     parser.add_argument('--load_model_filepath', type=str, default='', help='Directory from which to load model')
     parser.add_argument('--verbose', type=int, default=0)
 
 
-    
     return parser
-
-
-# # Custom validation function for integers between 0 and 1
-# def between_zero_and_one(value):
-    
-#     if fvalue < 0 or fvalue >= 1:
-#         raise argparse.ArgumentTypeError(f"{fvalue} is not in in [0, 1)")
-#     exit()
-#     return value
-
-
-
-
-
-
