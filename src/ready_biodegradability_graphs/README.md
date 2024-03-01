@@ -30,7 +30,7 @@ python /main.py --inference --load_model_id [model_id]
 `--graph_network_type attention` Specifies the type of graph network to use. Choices are 'convolutional', 'attention', or 'sage'. *Default is 'attention.*<br>
 `--hidden_dims [DIM1,DIM2,...]`: Specifies the dimensions of hidden layers in the neural network. *Default is [32].*<br>
 `--attention_heads [N1,N2,...] or N`: Specifies the number of attention heads in the attention mechanism for each layer. *Default is 1.*<br>
-`--pooling PL`: Specifies the type of pooling to be applied in the graph network. Choices are 'mean', 'add', or 'max'. *Default is 'mean.*<br>
+`--pooling PL`: Specifies the type of pooling to be applied in the graph network. Choices are 'mean', 'add', or 'max'. *Default is 'mean'.*<br>
 `--loss_weights [W_NEGATIVE, W_POSITIVE]`: Specifies the weights for the negative and possitive classes in the loss function. *Default is [1.0, 1.0]*.<br>
 `--smoothing [S_NEGATIVE, S_POSITIVE]`: Specifies the smoothing factors for the negative and possitive classes. *Default is [0.0, 0.0].*<br>
 `--cv_folds N`: Specifies the number of folds for cross-validation. *Default is 5.*<br>
