@@ -6,7 +6,7 @@ def get_args_parser():
 
     
     parser.add_argument('--batch_size', type=int, default=1, metavar='N', help='batch size (default: 1)')
-    parser.add_argument('--n_epochs', type=int, default=5, metavar='N',  help='number of epochs to train (default: 100)')
+    parser.add_argument('--n_epochs', type=int, default=100, metavar='N',  help='number of epochs to train (default: 100)')
     parser.add_argument('--lr', type=float, default=5e-4, metavar='LR', help='learning rate (default: 5e-4)')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimization algorithm (default: Adam)', choices=['Adam', 'AdamW', 'SGD'])
     parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay coefficient ')
@@ -17,7 +17,7 @@ def get_args_parser():
     parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 1)')
     # parser.add_argument('--load_model_id', type=int, default=None)
-    parser.add_argument('--num_workers', type=int, default=1)
+    parser.add_argument('--num_workers', type=int, default=0)
     # parser.add_argument('--evaluation_metric', type=str, default='f1_score')
     parser.add_argument('--graph_network_type', type=str, default='attention', choices=['convolutional', 'attention', 'sage'], help='type of graph network')
     parser.add_argument('--input_dim', type=int, default=44, help='feature vector dimension')
