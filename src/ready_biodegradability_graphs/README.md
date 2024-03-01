@@ -32,20 +32,20 @@ python /main.py --inference --load_model_id [model_id]
 `--attention_heads [N1,N2,...] or N`: Specifies the number of attention heads in the attention mechanism for each layer. *Default is 1.*<br>
 `--pooling PL`: Specifies the type of pooling to be applied in the graph network. Choices are 'mean', 'add', or 'max'. *Default is 'mean.*<br>
 `--loss_weights [W_NEGATIVE, W_POSITIVE]`: Specifies the weights for the negative and possitive classes in the loss function. *Default is [1.0, 1.0]*.<br>
-`--smoothing [S_NEGATIVE, S_POSITIVE]`: Specifies the smoothing factors for the negative and possitive classes. *Default is [0.0, 0.0].*`<br>
+`--smoothing [S_NEGATIVE, S_POSITIVE]`: Specifies the smoothing factors for the negative and possitive classes. *Default is [0.0, 0.0].*<br>
 `--cv_folds N`: Specifies the number of folds for cross-validation. *Default is 5.*<br>
 `--val_split_percentage P`: Specifies the percentage of the train dataset to be used for validation. This argument is applicable only when cross_validation is set to False. *Default is 0.15.*<br>
 `--test_split_percentage P`: Specifies the percentage of the dataset to be used for testing. *Default is 0.15.*<br>
-`--load_model_filepath 0.2`<br>
-`--verbose 0.2`<br>
+<!-- `--load_model_filepath 0.2`<br>
+`--verbose 0.2`<br> -->
 
 ### Flags
-`--inference: `<br>
-`--no_cuda`<br>
-`--graph_norm`<br>
-`--no_tqdm`<br>
-`--refit`<br>
-`--cross_validation`<br>
+`--inference`: Flag to enable inference mode. *Default is False.*<br>
+`--no_cuda`: Flag to disable the use of CUDA for GPU acceleration. If set, the model will run on CPU only. *Default is False.*<br>
+`--graph_norm`: Flag to use graph normalization layers. *Default is False.*<br>
+`--no_tqdm`: Flag to disable the use of tqdm for progress bars. *Default is False.*<br>
+`--refit`: Flag to refit the model on the entire training dataset, including validation dataset, before testing. *Default is False.*<br>
+`--cross_validation`: Flag to enable cross-validation. *Default is False.*<br>
 
 <!-- 
 
