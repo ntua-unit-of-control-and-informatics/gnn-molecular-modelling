@@ -128,7 +128,9 @@ if __name__ == '__main__':
         logging.info('Inference Mode\n')
     else:
         logging.info(f'{model_dir_prefix}ID: {new_id}\n')
-        logging.info(datetime.datetime.now())
+        current_datetime = datetime.datetime.now()
+        logging.info("Date: %s", current_datetime.strftime("%Y-%m-%d"))
+        logging.info("Time: %s", current_datetime.strftime("%H:%M:%S"))
 
 
     
@@ -227,13 +229,14 @@ if __name__ == '__main__':
                 # val_metrics_all.append(val_metrics)
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
                 
-                epoch_logs = f"Train Loss: {train_loss:.4f}" + ' | '
+                epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
                 epoch_logs += f"Val Loss: {val_loss:.4f}"  + ' | '
                 epoch_logs += f"Accuracy: {val_metrics['accuracy']:.4f}" + ' | '
                 epoch_logs += f"BA: {val_metrics['balanced_accuracy']:.4f}" + ' | '
                 epoch_logs += f"F1: {val_metrics['f1']:.4f}" + ' | '
                 epoch_logs += f"MCC: {val_metrics['mcc']:.4f}" + ' | '
-                epoch_logs += f"ROC_AUC: {val_metrics['roc_auc']:.4f}" + ' | '
+                epoch_logs += f"ROC_AUC: {val_metrics['roc_auc']:.4f}"
+                logging.info(epoch_logs)
                 
                 # if optimization_metric == 'loss':
                 #     if val_metrics['loss'] < best_optimization_metric:
