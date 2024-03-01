@@ -33,7 +33,7 @@ def get_args_parser():
     parser.add_argument('--cv_folds', type=int, default=5, help='number of cross-validation folds')
     parser.add_argument('--refit', action='store_true', default=False, help='refit on both train and validation data to evaluate on test set')
     parser.add_argument('--val_split_percentage', type=float, default=0.15, help='percentage of dataset to be used for validation')
-    # parser.add_argument('--test_split_percentage', type=float, default=0.15, help='percentage of dataset to be used for testing')
+    parser.add_argument('--test_split_percentage', type=float, default=0.15, help='percentage of dataset to be used for testing')
     parser.add_argument('--load_model_filepath', type=str, default='', help='Directory from which to load model')
     parser.add_argument('--verbose', type=int, default=0)
 
