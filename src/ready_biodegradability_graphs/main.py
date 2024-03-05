@@ -133,7 +133,13 @@ if __name__ == '__main__':
         logging.info("Time: %s", current_datetime.strftime("%H:%M:%S"))
 
 
-    
+    if not args.inference:
+        args_dict = vars(args)
+        # Write dictionary to a JSON file
+        with open(new_model_dir/'args.json', 'w') as json_file:
+            json.dump(args_dict, json_file)
+            
+
     # Load data
     train_val_dataset, test_dataset = read_data(dataset_filepath, args.seed, args.test_split_percentage)
     input_dim = train_val_dataset.df[0].x.shape[1]
@@ -346,11 +352,7 @@ if __name__ == '__main__':
 
         
 
-    if not args.inference:
-        args_dict = vars(args)
-        # Write dictionary to a JSON file
-        with open(new_model_dir/'args.json', 'w') as json_file:
-            json.dump(args_dict, json_file)
+    
     
 
     if not args.inference:
