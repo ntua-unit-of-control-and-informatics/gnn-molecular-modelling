@@ -8,7 +8,7 @@ def test(loader, model, loss_fn, device, task='binary', binary_decision_threshol
     if task=='binary':
         return test_binary(loader, model, loss_fn, device, decision_threshold=binary_decision_threshold)
     elif task=='regression':
-        return test_regression()
+        return test_regression(loader, model, loss_fn, device)
     else:
         raise ValueError(f"Unsupported task type '{task}'")
 
@@ -53,7 +53,7 @@ def test_binary(loader, model, loss_fn, device, decision_threshold=0.5):
 #     conf_mat = {'tn': tn, 'fp': fp, 'fn': fn, 'tp': tp}
      
     return avg_loss, metrics_dict, conf_mat
-                                                                         
+
 
 def test_regression(loader, model, loss_fn, device):
     
