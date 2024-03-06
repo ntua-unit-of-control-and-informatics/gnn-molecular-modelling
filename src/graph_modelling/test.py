@@ -81,7 +81,7 @@ def test_regression(loader, model, loss_fn, device):
         
         avg_loss = running_loss / len(loader.dataset)
     
-    metrics_dict = compute_metrics(all_true, all_preds)
+    metrics_dict = compute_metrics(all_true, all_preds, task='regression')
     metrics_dict['loss'] = avg_loss
         
     return avg_loss, metrics_dict
