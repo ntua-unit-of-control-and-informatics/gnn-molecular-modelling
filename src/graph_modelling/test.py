@@ -106,14 +106,14 @@ def compute_metrics(y_true, y_pred, task='binary'):
             'mcc': mcc
         }
     elif task=='regression':
-        explained_variance_score = metrics.explained_variance_score(y_true, y_pred)
+        explained_variance = metrics.explained_variance_score(y_true, y_pred)
         r2 = metrics.r2_score(y_true, y_pred)
         mse = metrics.mean_squared_error(y_true, y_pred)
         rmse = metrics.root_mean_squared_error(y_true, y_pred)
         mae = metrics.mean_absolute_error(y_true, y_pred)
 
         metrics_dict = {
-            'explained_variance_score': explained_variance_score,
+            'explained_variance': explained_variance,
             'r2': r2,
             'mse': mse,
             'rmse': rmse,
