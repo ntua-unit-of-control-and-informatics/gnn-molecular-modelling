@@ -1,19 +1,17 @@
 from rdkit import Chem
 import sys
-import random
 import pandas as pd
 
 if '../..' not in sys.path:
     sys.path.append('../..')
 
 from utils.utils import class_balanced_random_split
-from utilities import StandardNormalizer
 
 import torch
 from torch_geometric.data import Data
 import torch.nn.functional as F
 
-
+import warnings
 from torch.utils.data import Dataset
 # from tqdm.notebook import tqdm
 
@@ -40,9 +38,10 @@ def stratified_random_split_regression(df, num_bins, stratify_column, test_size=
 def endpoint_target_mean_std(endpoint_name):
 
     match endpoint_name:
-        case 'hc20':
+        case 'hcs20':
             return -0.123, 1.421
         case _:
+            # warnings.warn(f"No mean and std available for target variable '{endpoint_name}'. Defaulting to mean=0.0, std=1.0")
             return 0.0, 1.0
 
 

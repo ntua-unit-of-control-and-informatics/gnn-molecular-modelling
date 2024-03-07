@@ -1,7 +1,6 @@
 import torch.nn.functional as F
 import sklearn.metrics as metrics
 import torch
-from utilities import StandardNormalizer
 
 
 def test(loader, model, loss_fn, device, task='binary', binary_decision_threshold=0.5, target_normalizer=None):

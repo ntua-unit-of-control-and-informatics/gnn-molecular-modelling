@@ -23,7 +23,6 @@ from sklearn.model_selection import KFold
 
 
 import logging
-from typing import Iterable
 import pandas as pd
 import os
 import datetime
