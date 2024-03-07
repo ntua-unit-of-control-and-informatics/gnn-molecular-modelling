@@ -1,8 +1,9 @@
 from arguments import get_args_parser, validate_arguments
-from dataloaders import read_data, stratified_random_split_regression
+from dataloaders import read_data, stratified_random_split_regression, endpoint_target_mean_std
 from train import train
 from test import test
-from utilities import initialize_graph_model, initialize_optimizer, check_gpu_availability
+from utilities import initialize_graph_model, initialize_optimizer, check_gpu_availability, StandardNormalizer
+
 
 from pathlib import Path
 import sys
@@ -137,13 +138,17 @@ if __name__ == '__main__':
         with open(new_model_dir/'args.json', 'w') as json_file:
             json.dump(args_dict, json_file)
             
+    # matters only for regression
+    target_mean, target_std = endpoint_target_mean_std(args.endpoint_name)
+    target_normalizer = StandardNormalizer(target_mean, target_std) if args.normalize_target else None
 
     # Load data
     train_val_dataset, test_dataset = read_data(dataset_filepath,
                                                 args.seed,
                                                 args.test_split_percentage,
                                                 endpoint_name=args.endpoint_name,
-                                                task=args.task)
+                                                task=args.task,
+                                                target_normalizer=target_normalizer)
     input_dim = train_val_dataset.df[0].x.shape[1]
 
     
@@ -237,7 +242,7 @@ if __name__ == '__main__':
 
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, use_tqdm=not args.no_tqdm)
-                val_output = test(val_loader, model, loss_fn, device, task=args.task)
+                val_output = test(val_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
                 
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
 
@@ -327,12 +332,29 @@ if __name__ == '__main__':
             train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
             val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
+            
+
+            # print(len([d.y for d in train_dataset]))
+            # print(len([d.y for d in val_dataset]))
+            # print(len([d.y for d in train_val_dataset]))
+
+            # print(np.array([d.y for d in train_dataset]).mean())
+            # print(np.array([d.y for d in train_dataset]).std())
+            # print()
+            # print(np.array([d.y for d in val_dataset]).mean())
+            # print(np.array([d.y for d in val_dataset]).std())
+            # print()
+            # print(np.array([d.y for d in train_val_dataset]).mean())
+            # print(np.array([d.y for d in train_val_dataset]).std())
+
+            # exit()
+
             train_losses = np.zeros(args.n_epochs)
             val_losses = np.zeros(args.n_epochs)
             val_metrics_all = []
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, use_tqdm=not args.no_tqdm)
-                val_output = test(val_loader, model, loss_fn, device, task=args.task)
+                val_output = test(val_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
        
                 # val_metrics_all.append(val_metrics)
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
@@ -399,7 +421,7 @@ if __name__ == '__main__':
             logging.info("\nPerformance on Test Set:")
 
     # Testing
-    test_output = test(test_loader, model, loss_fn, device, task=args.task)
+    test_output = test(test_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
     if args.task == 'binary':
         test_loss, test_metrics, test_conf_mat = test_output
 
@@ -443,10 +465,8 @@ if __name__ == '__main__':
         end_datetime = datetime.datetime.now()
         logging.info("\nEnd Time: %s", end_datetime.strftime("%H:%M:%S"))
 
-        # Calculate the difference between end time and start time
         time_taken = end_datetime - start_datetime
 
-        # Extract days, hours, minutes, and seconds
         days = time_taken.days
         hours, remainder = divmod(time_taken.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)

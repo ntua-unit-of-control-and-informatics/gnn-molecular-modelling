@@ -39,7 +39,9 @@ def get_args_parser():
     # parser.add_argument('--verbose', type=int, default=0)
     parser.add_argument('--endpoint_name', type=str, default='ready_biodegradability')
     parser.add_argument('--task', type=str, default='binary', choices=['binary', 'regression'])
-
+    parser.add_argument('--normalize_target', action='store_true', default=False, help='normalize regression target variable, requires regression task')
+    # parser.add_argument('--target_mean', type=float, default=0.0, help='the normalization mean for the target regression variable')
+    # parser.add_argument('--target_std', type=float, default=1.0, help='the normalization mean for the target regression variable')
 
     return parser
 

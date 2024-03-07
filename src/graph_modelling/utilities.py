@@ -1,5 +1,6 @@
 import torch
 import sys
+import torch.nn as nn
 
 if '../..' not in sys.path:
     sys.path.append('../..')
@@ -34,7 +35,7 @@ def initialize_graph_model(graph_network_type, model_kwargs):
     """
     Initialize a graph neural network model based on the specified graph network type.
 
-    Parameters:
+    Args:
     - graph_network_type (str): The type of graph network to initialize. Supported values are 'convolutional', 'attention', and 'sage'.
     - model_kwargs (dict): Keyword arguments to be passed to the graph neural network model constructor.
 
@@ -63,7 +64,7 @@ def initialize_optimizer(optimization_algorithm, model_parameters, optimizer_kwa
     """
     Initialize an optimizer for the given optimization algorithm.
 
-    Parameters:
+    Args:
     - optimization_algorithm (str): The optimization algorithm to use. Supported values are 'Adam', 'AdamW', and 'SGD'.
     - model_parameters (iterable): The parameters of the model for which the optimizer will be initialized. It typically comes from model.parameters().
     - optimizer_kwargs (dict): Keyword arguments to be passed to the optimizer constructor.
@@ -89,4 +90,36 @@ def initialize_optimizer(optimization_algorithm, model_parameters, optimizer_kwa
             raise ValueError(f"Unsupported optimizer type '{optimization_algorithm}'")
         
     return optimizer
+
+
+
+class StandardNormalizer(nn.Module):
+    def __init__(self, mean=0.0, std=1.0):
+        super(StandardNormalizer, self).__init__()
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, input_tensor):
+        """
+        Args:
+            input_tensor (Tensor): Input tensor of size (N,) to be normalized.
+        Returns:
+            Tensor: Normalized tensor.
+        """
+        normalized_tensor = input_tensor.sub_(self.mean).div_(self.std)
+        return normalized_tensor
+    
+    def denormalize(self, normalized_tensor):
+        """
+        Args:
+            normalized_tensor (Tensor): Normalized tensor of size (N,) to be denormalized.
+        Returns:
+            Tensor: Denormalized tensor.
+        """
+        denormalized_tensor = normalized_tensor.mul_(self.std).add_(self.mean)
+        return denormalized_tensor
+
+    
+    def __repr__(self):
+        return self.__class__.__name__ + f'(mean={self.mean}, std={self.std})'
 

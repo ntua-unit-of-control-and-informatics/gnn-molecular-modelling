@@ -1,14 +1,15 @@
 import torch.nn.functional as F
 import sklearn.metrics as metrics
 import torch
+from utilities import StandardNormalizer
 
 
-def test(loader, model, loss_fn, device, task='binary', binary_decision_threshold=0.5):
+def test(loader, model, loss_fn, device, task='binary', binary_decision_threshold=0.5, target_normalizer=None):
 
     if task=='binary':
         return test_binary(loader, model, loss_fn, device, decision_threshold=binary_decision_threshold)
     elif task=='regression':
-        return test_regression(loader, model, loss_fn, device)
+        return test_regression(loader, model, loss_fn, device, target_normalizer=target_normalizer)
     else:
         raise ValueError(f"Unsupported task type '{task}'")
 
@@ -55,7 +56,7 @@ def test_binary(loader, model, loss_fn, device, decision_threshold=0.5):
     return avg_loss, metrics_dict, conf_mat
 
 
-def test_regression(loader, model, loss_fn, device):
+def test_regression(loader, model, loss_fn, device, target_normalizer=None):
     
     running_loss = 0
     total_samples = 0
@@ -81,6 +82,10 @@ def test_regression(loader, model, loss_fn, device):
         
         avg_loss = running_loss / len(loader.dataset)
     
+    if target_normalizer:
+        all_true = target_normalizer.denormalize(torch.tensor(all_true)).tolist()
+        all_preds = target_normalizer.denormalize(torch.tensor(all_preds)).tolist()
+
     metrics_dict = compute_metrics(all_true, all_preds, task='regression')
     metrics_dict['loss'] = avg_loss
         

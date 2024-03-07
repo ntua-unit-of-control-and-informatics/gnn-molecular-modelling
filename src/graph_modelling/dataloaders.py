@@ -7,14 +7,21 @@ if '../..' not in sys.path:
     sys.path.append('../..')
 
 from utils.utils import class_balanced_random_split
+from utilities import StandardNormalizer
+
 import torch
 from torch_geometric.data import Data
+import torch.nn.functional as F
+
 
 from torch.utils.data import Dataset
 # from tqdm.notebook import tqdm
 
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.model_selection import train_test_split
+
+
+
 
 
 def stratified_random_split_regression(df, num_bins, stratify_column, test_size=0.15, seed=None):
@@ -30,8 +37,20 @@ def stratified_random_split_regression(df, num_bins, stratify_column, test_size=
     
     return df_train, df_test
 
+def endpoint_target_mean_std(endpoint_name):
 
-def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task, shuffle=True):
+    match endpoint_name:
+        case 'hc20':
+            return -0.123, 1.421
+        case _:
+            return 0.0, 1.0
+
+
+
+
+
+
+def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task, target_normalizer=None, shuffle=True):
 
     # X, y = [], []
     # sdf_supplier = Chem.SDMolSupplier(str(dataset_filepath))
@@ -46,15 +65,19 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
     #         y.append(ready_biodegradability)
     
     df = pd.read_csv(dataset_filepath)
+    
+    if shuffle:
+        df = df.sample(frac=1, random_state=seed).reset_index(drop=True)
+
     X = df[['SMILES']].values.ravel().tolist()
     y = df[[endpoint_name]].values.ravel().tolist()
 
-    if shuffle:
-        zipped = list(zip(X, y))
-        random.shuffle(zipped)
-        X, y = zip(*zipped)
-        X = list(X)
-        y = list(y)
+    # if shuffle:
+    #     zipped = list(zip(X, y))
+    #     random.shuffle(zipped)
+    #     X, y = zip(*zipped)
+    #     X = list(X)
+    #     y = list(y)
 
     if task == 'binary':
         X_train, X_test, y_train, y_test = class_balanced_random_split(X, y, seed=seed, test_ratio_per_class=test_split_percentage)
@@ -64,11 +87,14 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
         y_train = df_train[[endpoint_name]].values.ravel().tolist()
         X_test = df_test[['SMILES']].values.ravel().tolist()
         y_test = df_test[[endpoint_name]].values.ravel().tolist()
+        if target_normalizer:
+            y_train = target_normalizer(torch.tensor(y_train)).tolist()
+            y_test = target_normalizer(torch.tensor(y_test)).tolist()
     else:
         raise ValueError(f"Unsupported task type '{task}'")
 
 
-
+    
     
 
 
