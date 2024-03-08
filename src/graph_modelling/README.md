@@ -47,7 +47,7 @@ python main.py --endpoint_name ENDPOINT --inference --load_model_id [model_id]
 `--beta1 BETA1`: Sets the exponential decay rate for the first moment estimates. Requires 'Adam' or  'AdamW' optimizers. *Default is 0.9.*<br>
 `--beta2 BETA2`: Sets the exponential decay rate for the first moment estimates. Requires 'Adam' or 'AdamW' optimizer. *Default is 0.999.*<br>
 `--adam_epsilon EPSILON`: Sets the term added to the denominator to improve numerical stability in the optimization. Requires 'Adam' or 'AdamW' optimizers. *Default is 1e-8.*<br>
-`--seed N`: Sets the random seed for reproducibility. *Default is 1.*<br>
+`--seed S`: Sets the random seed for reproducibility. *Default is 1.*<br>
 `--num_workers N`: Sets the number of worker processes for data loading. *Default is 0.*<br>
 `--graph_network_type GTYPE` Specifies the type of graph network to use. Choices are 'convolutional', 'attention', or 'sage'. *Default is 'attention.*<br>
 `--hidden_dims [DIM1,DIM2,...]`: Specifies the dimensions of hidden layers in the neural network. *Default is [32].*<br>
