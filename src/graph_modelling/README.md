@@ -75,7 +75,7 @@ python main.py --endpoint_name ENDPOINT --inference --load_model_id [model_id]
 
 ## Dataset Requirements
 
-To train the molecular graph modeling project with SMILES, you need a dataset file in CSV format with the following specifications:
+To train a molecular graph neural network, a dataset file in CSV format is needed, meeting the following specifications:
 
 - The CSV file must contain at least two columns:
   - One column with the SMILES representation of molecules, labeled 'SMILES'.
