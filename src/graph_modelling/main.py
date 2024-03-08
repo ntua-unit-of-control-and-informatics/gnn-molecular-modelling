@@ -72,7 +72,7 @@ if __name__ == '__main__':
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-
+    
     # Dirs
     # endpoint_name = 'ready_biodegradability'
     # working_dir = Path.cwd()
@@ -83,7 +83,10 @@ if __name__ == '__main__':
 
     working_dir = Path.cwd()
     filename = f'{args.endpoint_name}_dataset.csv'
-    data_dir = working_dir.parent.parent/'data'/args.endpoint_name
+    if args.data_dir:
+        data_dir = Path(args.args.data_dir).resolve()
+    else:
+        data_dir = working_dir.parent.parent/'data'/args.endpoint_name
     dataset_filepath = data_dir/filename
 
 
