@@ -98,7 +98,7 @@ Each set of experiments is specific to the corresponding endpoint, with a discre
 Within each endpoint-specific directory, there are individual directories for each model trained for that endpoint. These directories are named sequentially, such as `/Model_1`, `/Model_2`, and so on, with `{model_id}` indicating the unique identifier for each model.
 
 Inside each model directory, the following logs and metadata are stored:
-- `args.json`: Metadata containing the arguments used for training the model.
+- `args.json`: JSON file containing the arguments used for training the model.
 - `trainlogs_{model_id}.log`: Training logs for the specific model.
 - `train_losses.npy`: Training loss values stored as a NumPy array.
 - `val_losses.npy`: Validation loss values stored as a NumPy array.
