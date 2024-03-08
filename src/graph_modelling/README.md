@@ -125,6 +125,36 @@ This organized structure allows for easy management and retrieval of training lo
 Note: As a future feature, model saving functionality will be incorporated into this directory structure. Trained models will be saved within the corresponding model directories.
 
 
+## Supported Evaluation Metrics
+
+The model supports a range of evaluation metrics to assess its performance on both classification and regression tasks.
+
+### Classification Metrics
+
+For classification tasks, the following evaluation metrics are supported:
+
+- **Accuracy:** Measures the proportion of correctly classified samples.
+- **Balanced Accuracy:** Measures the accuracy of the model while accounting for class imbalances by averaging the accuracy of each class.
+- **Precision:** Measures the proportion of true positive predictions among all positive predictions.
+- **Recall:** Measures the proportion of true positive predictions among all actual positive samples.
+- **F1 Score:** Harmonic mean of precision and recall, providing a balance between the two metrics.
+- **ROC AUC Score:** Measures the area under the Receiver Operating Characteristic curve, indicating the model's ability to distinguish between classes.
+- **Matthews Correlation Coefficient (MCC):** Measures the correlation between the predicted and actual binary classifications, considering both true and false positives and negatives.
+- **Confusion Matrix:** A table representing the counts of true positive, false positive, true negative, and false negative predictions.
+
+
+### Regression Metrics
+
+For regression tasks, the following evaluation metrics are supported:
+
+- **Mean Absolute Error (MAE):** Average of the absolute differences between predicted and actual values.
+- **Mean Squared Error (MSE):** Average of the squared differences between predicted and actual values.
+- **Root Mean Squared Error (RMSE):** Square root of the MSE, providing a measure of the average magnitude of errors.
+- **R-squared (R2) Score:** Measures the proportion of variance in the target variable that is explained by the model.
+- **Explained Variance Score:** Measures the proportion of variance in the target variable that is explained by the model, normalized by the variance of the target variable itself.
+
+
+
 
 <!-- 
 
