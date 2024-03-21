@@ -2,7 +2,7 @@ from arguments import get_args_parser, validate_arguments
 from dataloaders import read_data, stratified_random_split_regression, endpoint_target_mean_std
 from train import train
 from test import test
-from utilities import initialize_graph_model, initialize_optimizer, check_gpu_availability, StandardNormalizer
+from utilities import initialize_graph_model, initialize_optimizer, check_gpu_availability, initialize_scheduler, StandardNormalizer
 
 
 from pathlib import Path
@@ -54,7 +54,6 @@ warnings.filterwarnings("ignore")
 
 
 if __name__ == '__main__':
-
 
     # Parse arguments
     args = get_args_parser().parse_args()
@@ -211,6 +210,9 @@ if __name__ == '__main__':
         'eps': args.adam_epsilon
     }
 
+    milestone_percentages = [0.8, 0.98]
+    milestones = [int(percent * args.n_epochs) for percent in milestone_percentages]
+    scheduler_kwargs = {'milestones': milestones}
 
     if args.cross_validation: # cross-validation
         train_losses = np.zeros((args.cv_folds, args.n_epochs))
@@ -227,6 +229,7 @@ if __name__ == '__main__':
 
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
+            scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
 
             # best_epoch = 1
             # optimization_metric = 'f1'
@@ -245,7 +248,8 @@ if __name__ == '__main__':
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, use_tqdm=not args.no_tqdm)
                 val_output = test(val_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
-                
+                scheduler.step()
+
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
 
                 if args.task == 'binary':
@@ -302,22 +306,30 @@ if __name__ == '__main__':
 
     else:
         if args.val_split_percentage == 0: # only train-test
-
+            print("No val")
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
+            scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
 
             train_losses = np.zeros((1, args.n_epochs))
             train_loader = DataLoader(train_val_dataset, batch_size=args.batch_size, shuffle=True)
 
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, not args.no_tqdm)
-                train_losses[1, epoch-1] = train_loss
+                train_losses[0, epoch-1] = train_loss
+                logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
+
+                epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
+                logging.info(epoch_logs)
+
+                scheduler.step()
             
-            np.save(new_model_dir/'train_losses.npy', train_losses)        
-            
+            np.save(new_model_dir/'train_losses.npy', train_losses)
+            torch.save(model.state_dict(), new_model_dir/'checkpoint.pt')
         else: # train-val-test
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
+            scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
 
             if args.task == 'binary':
                 train_index, val_index, _, _ = class_balanced_random_split(X=list(range(len(train_val_dataset))), y=[d.y for d in train_val_dataset], seed=args.seed, test_ratio_per_class=args.val_split_percentage)
@@ -357,7 +369,8 @@ if __name__ == '__main__':
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, use_tqdm=not args.no_tqdm)
                 val_output = test(val_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
-       
+                scheduler.step()
+                
                 # val_metrics_all.append(val_metrics)
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
                 
@@ -405,6 +418,7 @@ if __name__ == '__main__':
         logging.info("\nRefitting model on both Train and Validation data...\n")
         model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
         optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
+        scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
 
         refit_train_losses = np.zeros(args.n_epochs)
         train_loader = DataLoader(train_val_dataset, batch_size=args.batch_size, shuffle=True)
@@ -413,6 +427,7 @@ if __name__ == '__main__':
         for epoch in range(1, args.n_epochs + 1):
             refit_train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, not args.no_tqdm)
             refit_train_losses[epoch-1] = refit_train_loss
+            scheduler.step()
         
         np.save(new_model_dir/'refit_train_losses.npy', refit_train_losses)
         logging.info("\nPerformance of refitted model on Test Set:")
@@ -423,10 +438,14 @@ if __name__ == '__main__':
             logging.info("\nPerformance on Test Set:")
 
     # Testing
+    # model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
+    # model_checkpoint_path = experiments_dir/f'Model_{new_id}'/'checkpoint.pt'
+    # checkpoint = torch.load(model_checkpoint_path)
+    # print(model.load_state_dict(checkpoint))
     test_output = test(test_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
     if args.task == 'binary':
         test_loss, test_metrics, test_conf_mat = test_output
-
+        
         tn, fp, fn, tp = test_conf_mat
         conf_mat_dict = {'tn': tn, 'fp': fp, 'fn': fn, 'tp': tp}
         fieldnames = list(test_metrics.keys()) + list(conf_mat_dict.keys())
