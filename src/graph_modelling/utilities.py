@@ -7,9 +7,12 @@ if '../..' not in sys.path:
 
 from models.graph_convolutional_network import GraphConvolutionalNetwork
 from models.graph_attention_network import GraphAttentionNetwork
+from models.graph_sage_network import GraphSAGENetwork
+from models.residual_block import Resnet
 
 import warnings
 
+from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
 
 def check_gpu_availability(use_gpu=True):
     """
@@ -46,14 +49,14 @@ def initialize_graph_model(graph_network_type, model_kwargs):
     >>> model_kwargs = {'input_dim': 44, 'hidden_dim': [32, 64]}
     >>> model = initialize_graph_model('convolutional', model_kwargs)
     """
+    # model = Resnet(**model_kwargs)
     # Initialise Model
     if graph_network_type=='convolutional':
         model = GraphConvolutionalNetwork(**model_kwargs)
     elif graph_network_type=='attention':
         model = GraphAttentionNetwork(**model_kwargs)
     elif graph_network_type=='sage':
-        raise NotImplementedError("Graph Sage Network not implemented yet.")
-        model = ...
+        model = GraphSAGENetwork(**model_kwargs)
     else:
         raise ValueError(f"Unsupported graph network type for '{graph_network_type}'")
 
@@ -85,11 +88,23 @@ def initialize_optimizer(optimization_algorithm, model_parameters, optimizer_kwa
         case 'SGD':
             optimizer_kwargs.pop('betas', None)
             optimizer_kwargs.pop('eps', None)
-            optimizer = torch.optim.SGD(model_parameters, **optimizer_kwargs)
+            optimizer = torch.optim.SGD(model_parameters, momentum=0.9, **optimizer_kwargs)
         case _:
             raise ValueError(f"Unsupported optimizer type '{optimization_algorithm}'")
         
     return optimizer
+
+def initialize_scheduler(scheduler_type, optimizer, scheduler_kwargs):
+
+    match scheduler_type:
+        case 'multistep':
+            milestones = scheduler_kwargs['milestones']
+            scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.1)   
+            # scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)         
+        case _:
+            raise ValueError(f"Unsupported scheduler type '{scheduler_type}'")
+        
+    return scheduler
 
 
 
