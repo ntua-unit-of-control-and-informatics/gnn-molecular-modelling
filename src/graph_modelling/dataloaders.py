@@ -6,7 +6,6 @@ if '../..' not in sys.path:
     sys.path.append('../..')
 
 from utils.utils import class_balanced_random_split
-
 import torch
 from torch_geometric.data import Data
 from torch.utils.data import Dataset
@@ -14,9 +13,6 @@ from torch.utils.data import Dataset
 
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.model_selection import train_test_split
-
-
-
 
 
 def stratified_random_split_regression(df, num_bins, stratify_column, test_size=0.15, seed=None):
@@ -90,8 +86,7 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
         raise ValueError(f"Unsupported task type '{task}'")
 
 
-    
-    
+    inverse_hybridization_names = {v: k for k, v in Chem.rdchem.HybridizationType.names.items()}
 
 
     Symb , Hs , Impv , Fc , Hb , ExpV , Deg = set() , set() , set() , set() , set() , set() , set()
@@ -104,7 +99,7 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
             Hs.add(atom.GetTotalNumHs())
             Impv.add(atom.GetImplicitValence())
             Fc.add(atom.GetFormalCharge())
-            Hb.add(atom.GetHybridization())
+            Hb.add(inverse_hybridization_names[atom.GetHybridization()])
             ExpV.add(atom.GetExplicitValence())
             Deg.add(atom.GetDegree())
             
@@ -113,13 +108,13 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
             conj.add(bond.GetIsConjugated())
     
 
-    Symbols = list(Symb)
-    Degree = list(Deg)
-    Hs_Atoms = list(Hs)
-    Implicit_Val = list(Impv)
-    Formal_Charge = list(Fc)
-    Explicit_Val = list(ExpV)
-    Hybridization = list(Hb)
+    Symbols = sorted(Symb)
+    Degree = sorted(Deg)
+    Hs_Atoms = sorted(Hs)
+    Implicit_Val = sorted(Impv)
+    Formal_Charge = sorted(Fc)
+    Explicit_Val = sorted(ExpV)
+    Hybridization = sorted(Hb)
 
     structural_data = (Symbols, Degree, Hs_Atoms, Implicit_Val, Formal_Charge, Explicit_Val, Hybridization)
     
@@ -130,19 +125,17 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
     return train_dataset, test_dataset
 
 
-    
-
-
-
-
 def atom_feature(atom, structural_data):
+    
+    inverse_hybridization_names = {v: k for k, v in Chem.rdchem.HybridizationType.names.items()}
+    
     Symbols, Degree, Hs_Atoms, Implicit_Val, Formal_Charge, Explicit_Val, Hybridization = structural_data
     return torch.tensor(one_of_k_encoding_unk(atom.GetSymbol(), Symbols) +
                         one_of_k_encoding(atom.GetTotalNumHs(), Hs_Atoms) +
                         one_of_k_encoding(atom.GetDegree(), Degree) +
                         one_of_k_encoding(atom.GetImplicitValence(), Implicit_Val) +
                         one_of_k_encoding(atom.GetFormalCharge(), Formal_Charge) +
-                        one_of_k_encoding(atom.GetHybridization(), Hybridization) +
+                        one_of_k_encoding(inverse_hybridization_names[atom.GetHybridization()], Hybridization) +
                         one_of_k_encoding(atom.GetExplicitValence(), Explicit_Val) +
                         [atom.GetIsAromatic()], dtype=torch.int16)
 
@@ -196,7 +189,10 @@ class GraphDataset(Dataset):
         dataset_info = [nodes_and_adjacency(smile, y, structural_data) for smile, y in (zip(smiles, y))]
 
         self.df = [info for info in dataset_info]
-        
+    #     self.smiles = smiles
+    
+    # def get_smiles(self, idx):
+    #     return self.smiles[idx]
         
     def __getitem__(self, idx):
         
