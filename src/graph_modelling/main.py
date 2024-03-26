@@ -325,7 +325,9 @@ if __name__ == '__main__':
                 scheduler.step()
             
             np.save(new_model_dir/'train_losses.npy', train_losses)
-            torch.save(model.state_dict(), new_model_dir/'checkpoint.pt')
+            # torch.save(model.state_dict(), new_model_dir/'checkpoint.pt')
+            model_scripted = torch.jit.script(model)
+            model_scripted.save('model_scripted.pt')
         else: # train-val-test
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
