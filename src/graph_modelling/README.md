@@ -19,8 +19,8 @@ python main.py [-h] --endpoint_name ENDPOINT [--task TASK] [--data_dir DATA_DIR]
                [--hidden_dims DIM [DIM ...]] [--attention_heads N [N ...]] [--dropout P [P ...]] [--pooling PL]
                [--loss_weights [W_NEGATIVE, W_POSITIVE] [W_NEGATIVE, W_POSITIVE]]
                [--smoothing [S_NEGATIVE, S_POSITIVE] [S_NEGATIVE, S_POSITIVE]] [--cv_folds N]
-               [--val_split_percentage P] [--test_split_percentage P] [--inference] [--no_cuda] [--graph_norm]
-               [--no_tqdm] [--refit] [--cross_validation] [--normalize_target]
+               [--val_split_percentage P] [--test_split_percentage P] [--doa DOA] [--inference] [--no_cuda]
+               [--graph_norm] [--no_tqdm] [--refit] [--cross_validation] [--normalize_target]
 ```
 
 ### Train with Default Arguments
@@ -59,6 +59,7 @@ python main.py --endpoint_name ENDPOINT --inference --load_model_id [model_id]
 `--cv_folds N`: Specifies the number of folds for cross-validation. *Default is 5.*<br>
 `--val_split_percentage P`: Specifies the percentage of the train dataset to be used for validation. This argument is applicable only when cross_validation is set to False. *Default is 0.15.*<br>
 `--test_split_percentage P`: Specifies the percentage of the dataset to be used for testing. *Default is 0.15.*<br>
+`--doa DOA`: Specifies the Domain of Applicability algorithm. *Default is 'Leverage'.*<br>
 <!-- `--load_model_filepath 0.2`<br>
 `--verbose 0.2`<br> -->
 
