@@ -47,7 +47,7 @@ lg = RDLogger.logger()
 lg.setLevel(RDLogger.CRITICAL)
 
 # current_dir = Path().absolute()
-warnings.filterwarnings("ignore")
+# warnings.filterwarnings("ignore")
 
 # if str(current_dir.parent/'src') not in sys.path:
 #     sys.path.append(str(current_dir.parent/'src'))
@@ -334,7 +334,7 @@ if __name__ == '__main__':
             model_scripted = torch.jit.script(model)
             model_scripted.save(new_model_dir/'model_scripted.pt')
             
-            doa = Leverage()
+            doa = initialize_doa(args.doa)
             doa.fit(train_loader, model, device)
             doa.save(new_model_dir/'doa.pkl')
             
@@ -357,23 +357,6 @@ if __name__ == '__main__':
             
             train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
             val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
-
-            
-
-            # print(len([d.y for d in train_dataset]))
-            # print(len([d.y for d in val_dataset]))
-            # print(len([d.y for d in train_val_dataset]))
-
-            # print(np.array([d.y for d in train_dataset]).mean())
-            # print(np.array([d.y for d in train_dataset]).std())
-            # print()
-            # print(np.array([d.y for d in val_dataset]).mean())
-            # print(np.array([d.y for d in val_dataset]).std())
-            # print()
-            # print(np.array([d.y for d in train_val_dataset]).mean())
-            # print(np.array([d.y for d in train_val_dataset]).std())
-
-            # exit()
 
             train_losses = np.zeros(args.n_epochs)
             val_losses = np.zeros(args.n_epochs)
@@ -421,6 +404,14 @@ if __name__ == '__main__':
                 writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(val_metrics_all)
+            
+            # torch.save(model.state_dict(), new_model_dir/'checkpoint.pt')
+            model_scripted = torch.jit.script(model)
+            model_scripted.save(new_model_dir/'model_scripted.pt')
+            
+            doa = doa = initialize_doa(args.doa)
+            doa.fit(train_loader, model, device)
+            doa.save(new_model_dir/'doa.pkl')
             
             
 

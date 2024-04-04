@@ -35,6 +35,7 @@ def get_args_parser():
     # parser.add_argument('--verbose', type=int, default=0)
     # parser.add_argument('--target_mean', type=float, default=0.0, help='the normalization mean for the target regression variable')
     # parser.add_argument('--target_std', type=float, default=1.0, help='the normalization mean for the target regression variable')
+    parser.add_argument('--doa', metavar='DOA', type=str, default='Leverage', help="Specifies the Domain of Applicability algorithm")
     parser.add_argument('--inference', action='store_true', default=False, help="Flag to enable inference mode. Default is False.")
     parser.add_argument('--no_cuda', action='store_true', default=False, help="Flag to disable the use of CUDA for GPU acceleration. If set, the model will run on CPU only. Default is False.")
     parser.add_argument('--graph_norm', action='store_true', default=False, help="Flag to use graph normalization layers. Default is False.")
