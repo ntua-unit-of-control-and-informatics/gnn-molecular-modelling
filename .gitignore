@@ -6,3 +6,4 @@ data/
 *.sdf
 experiments/
 *.bat
+*.pkl
