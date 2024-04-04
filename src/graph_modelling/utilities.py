@@ -1,6 +1,8 @@
 import torch
 import sys
 import torch.nn as nn
+from abc import ABC, abstractmethod
+
 
 if '../..' not in sys.path:
     sys.path.append('../..')
@@ -13,6 +15,8 @@ from models.residual_block import Resnet
 import warnings
 
 from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
+
+from doa import Leverage
 
 def check_gpu_availability(use_gpu=True):
     """
@@ -106,6 +110,27 @@ def initialize_scheduler(scheduler_type, optimizer, scheduler_kwargs):
         
     return scheduler
 
+def initialize_doa(doa_type):
+    """
+    Initialize an optimizer for the given optimization algorithm.
+
+    Args:
+    - doa_type (str): The Domain of Applicability algorithm to use. Supported values are 'Leverage'.
+
+    Returns:
+    - GraphEmbeddingSpaceDoA: The initialized DoA object.
+
+    Example:
+    >>> doa = initialize_optimizer('Leverage')
+    """
+    match doa_type:
+        case 'Leverage':
+            doa = Leverage()
+        case _:
+            raise ValueError(f"Unsupported doa type '{doa_type}'")
+        
+    return doa
+
 
 
 class StandardNormalizer(nn.Module):
@@ -137,4 +162,6 @@ class StandardNormalizer(nn.Module):
     
     def __repr__(self):
         return self.__class__.__name__ + f'(mean={self.mean}, std={self.std})'
+
+
 
