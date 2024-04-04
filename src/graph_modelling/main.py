@@ -2,8 +2,8 @@ from arguments import get_args_parser, validate_arguments
 from dataloaders import read_data, stratified_random_split_regression, endpoint_target_mean_std
 from train import train
 from test import test
-from utilities import initialize_graph_model, initialize_optimizer, check_gpu_availability, initialize_scheduler, StandardNormalizer
-
+from utilities import initialize_graph_model, initialize_optimizer, check_gpu_availability, initialize_scheduler, initialize_doa, StandardNormalizer
+from doa import GraphEmbeddingSpaceDoA, Leverage
 
 from pathlib import Path
 import sys
@@ -144,13 +144,14 @@ if __name__ == '__main__':
     target_normalizer = StandardNormalizer(target_mean, target_std) if args.normalize_target else None
 
     # Load data
-    train_val_dataset, test_dataset = read_data(dataset_filepath,
-                                                args.seed,
-                                                args.test_split_percentage,
-                                                endpoint_name=args.endpoint_name,
-                                                task=args.task,
-                                                target_normalizer=target_normalizer)
-    input_dim = train_val_dataset.df[0].x.shape[1]
+    train_val_dataset, test_dataset, featurizer = read_data(dataset_filepath,
+                                                            args.seed,
+                                                            args.test_split_percentage,
+                                                            endpoint_name=args.endpoint_name,
+                                                            task=args.task,
+                                                            target_normalizer=target_normalizer)
+    featurizer.save_config(new_model_dir/'featurizer_config.pkl')
+    input_dim = train_val_dataset[0].x.shape[1]
 
     
 
@@ -306,7 +307,6 @@ if __name__ == '__main__':
 
     else:
         if args.val_split_percentage == 0: # only train-test
-            print("No val")
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
             scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
@@ -317,6 +317,7 @@ if __name__ == '__main__':
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, not args.no_tqdm)
                 train_losses[0, epoch-1] = train_loss
+                train_output = test(train_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
 
                 epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
@@ -325,9 +326,15 @@ if __name__ == '__main__':
                 scheduler.step()
             
             np.save(new_model_dir/'train_losses.npy', train_losses)
+            
             # torch.save(model.state_dict(), new_model_dir/'checkpoint.pt')
             model_scripted = torch.jit.script(model)
-            model_scripted.save('model_scripted.pt')
+            model_scripted.save(new_model_dir/'model_scripted.pt')
+            
+            doa = Leverage()
+            doa.fit(train_loader, model, device)
+            doa.save(new_model_dir/'doa.pkl')
+            
         else: # train-val-test
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
@@ -370,6 +377,7 @@ if __name__ == '__main__':
             val_metrics_all = []
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, use_tqdm=not args.no_tqdm)
+                # train_output = test(train_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
                 val_output = test(val_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
                 scheduler.step()
                 
@@ -410,6 +418,8 @@ if __name__ == '__main__':
                 writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(val_metrics_all)
+            
+            
 
 
 
@@ -445,6 +455,28 @@ if __name__ == '__main__':
     # checkpoint = torch.load(model_checkpoint_path)
     # print(model.load_state_dict(checkpoint))
     test_output = test(test_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
+    # h_train, _ = doa.check_applicability_domain_with_model(train_loader, model, device)
+    # h_test, _ = doa.check_applicability_domain_with_model(test_loader, model, device)
+
+    # import numpy as np
+    # import matplotlib.pyplot as plt
+
+    # # Plot a histogram of the resulting values
+    # plt.figure()
+    # plt.hist(h_train, bins=50)  # Adjust the number of bins as needed
+    # plt.xlabel('h-value')
+    # plt.ylabel('# samples')
+    # plt.title('Histogram')
+
+    # plt.figure()
+    # plt.hist(h_test, bins=50)  # Adjust the number of bins as needed
+    # plt.xlabel('h-value')
+    # plt.ylabel('# samples')
+    # plt.title('Histogram')
+
+
+    # plt.show()
+    
     if args.task == 'binary':
         test_loss, test_metrics, test_conf_mat = test_output
         
