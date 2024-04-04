@@ -140,8 +140,11 @@ if __name__ == '__main__':
             json.dump(args_dict, json_file)
             
     # matters only for regression
-    target_mean, target_std = endpoint_target_mean_std(args.endpoint_name)
-    target_normalizer = StandardNormalizer(target_mean, target_std) if args.normalize_target else None
+    if args.task == 'regression' and args.normalize_target:
+        target_mean, target_std = endpoint_target_mean_std(args.endpoint_name)
+        target_normalizer = StandardNormalizer(target_mean, target_std)
+    else:
+        target_normalizer = None
 
     # Load data
     train_val_dataset, test_dataset, featurizer = read_data(dataset_filepath,
@@ -525,8 +528,13 @@ if __name__ == '__main__':
         days = time_taken.days
         hours, remainder = divmod(time_taken.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
+        if days > 0:
+            logging.info(f"\nTime taken: {days} days, {hours} hours, {minutes} minutes, and {seconds} seconds.")
+        elif hours > 0:
+            logging.info(f"\nTime taken: {hours} hours, {minutes} minutes, and {seconds} seconds.")
+        elif minutes > 0:
+            logging.info(f"\nTime taken: {minutes} minutes, and {seconds} seconds.")
 
-        print(f"\nTime taken: {days} days, {hours} hours, {minutes} minutes, and {seconds} seconds.")
 
 
 
