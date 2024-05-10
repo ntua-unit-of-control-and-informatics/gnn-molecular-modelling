@@ -1,9 +1,59 @@
 import torch.nn as nn
 from typing import Optional, Iterable, Union
-import torch.nn.functional as F
-from torch_geometric.nn import GATConv, GraphNorm
+from torch_geometric.nn import GATConv
+from torch_geometric.nn import GraphNorm, BatchNorm, GraphSizeNorm, InstanceNorm, LayerNorm
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 import torch.nn.init as init
+from torch import Tensor
+from torch_geometric.typing import OptTensor
+
+
+class GraphAttentionBlock(nn.Module):
+
+    def __init__(self,
+                 input_dim: int,
+                 hidden_dim: int,
+                 heads: Optional[int] = 1,
+                 edge_dim: Optional[int] = None,
+                 activation: Optional[nn.Module] = nn.ReLU(),
+                 dropout_probability: float = 0.5,
+                 graph_norm: Optional[bool] = False,
+                 jittable: Optional[bool] = True,
+                 *args,
+                 **kwargs):
+        
+        super(GraphAttentionBlock, self).__init__()
+        
+        self.jittable = jittable
+        
+        self.hidden_layer = GATConv(input_dim, hidden_dim, heads, edge_dim=edge_dim)
+
+        if jittable:
+            self.hidden_layer = self.hidden_layer.jittable()
+
+        self.graph_norm = graph_norm
+        if self.graph_norm:
+            self.gn_layer = GraphNorm(hidden_dim*heads)
+        else:
+            self.gn_layer = None
+            
+        self.activation = activation
+        self.dropout = nn.Dropout(p=dropout_probability)
+        
+    
+    def forward(self,
+                x: Tensor,
+                edge_index: Tensor,
+                batch: Optional[Tensor],
+                edge_attr: OptTensor = None) -> Tensor:
+
+        x = self.hidden_layer(x, edge_index, edge_attr=edge_attr)
+        if self.gn_layer is not None:
+            x = self.gn_layer(x, batch)
+        x = self.activation(x)
+        x = self.dropout(x)
+
+        return x
 
 
 
@@ -13,11 +63,13 @@ class GraphAttentionNetwork(nn.Module):
                  input_dim: int,
                  hidden_dims: Iterable[int],
                  heads: int = Union[int, Iterable[int]],
+                 edge_dim: Optional[int] = None,
                  output_dim: Optional[int] = 1,
                  activation: Optional[nn.Module] = nn.ReLU(),
                  dropout: Union[float, Iterable[float]] = 0.5,
                  graph_norm: Optional[bool] = False,
                  pooling: Optional[str] = 'mean',
+                 jittable: Optional[bool] = True,
                  *args,
                  **kwargs):
     
@@ -75,31 +127,37 @@ class GraphAttentionNetwork(nn.Module):
             raise NotImplementedError(f"Pooling operation '{self.pooling}' is not supported")
         
 
-
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
         self.heads = [heads]*len(hidden_dims) if isinstance(heads, int) else heads
         self.output_dim = output_dim
-        self.activation = activation
         self.dropout_probabilities = [dropout]*len(hidden_dims) if isinstance(dropout, float) else dropout
         self.graph_norm = graph_norm
         self.pooling = pooling
+        self.jittable = jittable
 
-        # Initialise GATConv Layers
-        self.conv_layers = nn.ModuleList()
-        self.conv_layers.append(GATConv(input_dim, hidden_dims[0], self.heads[0]))
 
+        self.graph_layers = nn.ModuleList() 
+        graph_layer = GraphAttentionBlock(input_dim, hidden_dims[0],
+                                          heads=self.heads[0],
+                                          edge_dim=edge_dim,
+                                          activation=activation,
+                                          dropout_probability=self.dropout_probabilities[0],
+                                          graph_norm=graph_norm,
+                                          jittable=jittable)
+        self.graph_layers.append(graph_layer)
+
+        
         for i in range(len(hidden_dims) - 1):
-            hidden_layer = GATConv(hidden_dims[i]*self.heads[i], hidden_dims[i+1], self.heads[i+1])
-            self.conv_layers.append(hidden_layer)
-
-
-        # Initialise Graph Norm Layers
-        if graph_norm:
-            self.gn_layers = nn.ModuleList()
-            for hidden_dim, num_heads in zip(hidden_dims, self.heads):
-                gn_layer = GraphNorm(hidden_dim*num_heads)
-                self.gn_layers.append(gn_layer)
+            graph_layer = GraphAttentionBlock(hidden_dims[i]*self.heads[i], hidden_dims[i+1],
+                                              heads=self.heads[i+1],
+                                              activation=activation,
+                                              edge_dim=edge_dim,
+                                              dropout_probability=self.dropout_probabilities[i],
+                                              graph_norm=graph_norm,
+                                              jittable=jittable)
+            self.graph_layers.append(graph_layer)
+    
         
         # Initialise Fully Connected Layer
         self.fc = nn.Linear(hidden_dims[-1]*self.heads[-1], output_dim)
@@ -107,24 +165,34 @@ class GraphAttentionNetwork(nn.Module):
         # Apply Xavier initialization to fc
         init.xavier_uniform_(self.fc.weight)
         init.zeros_(self.fc.bias)
-
-
-    def forward(self, x, edge_index, batch):
-
-        for i, conv_layer in enumerate(self.conv_layers):
-            x = conv_layer(x, edge_index)
-            if self.graph_norm:
-                x = self.gn_layers[i](x, batch)
-            x = self.activation(x)
-            x = F.dropout(x, p=self.dropout_probabilities[i], training=self.training)
+    
+    
+    def forward(self,
+                x: Tensor,
+                edge_index: Tensor,
+                batch: Optional[Tensor],
+                edge_attr: OptTensor = None) -> Tensor:
         
-        x = self._pooling_function(x, batch)
+        x = self._forward_graph(x, edge_index, batch, edge_attr=edge_attr)
         x = self.fc(x)
-
         return x
     
 
-    def _pooling_function(self, x, batch):
+    def _forward_graph(self,
+                       x: Tensor,
+                       edge_index: Tensor,
+                       batch: Optional[Tensor],
+                       edge_attr: OptTensor = None) -> Tensor:
+
+        for graph_layer in self.graph_layers:
+            x = graph_layer(x, edge_index, batch=batch, edge_attr=edge_attr)
+        x = self._pooling_function(x, batch)
+        return x
+    
+
+    def _pooling_function(self,
+                          x: Tensor, 
+                          batch: Optional[Tensor]) -> Tensor:
 
         if self.pooling == 'add':
             return global_add_pool(x, batch)
@@ -134,6 +202,4 @@ class GraphAttentionNetwork(nn.Module):
             return global_max_pool(x, batch)
         else:
             raise NotImplementedError(f"Pooling operation '{self.pooling}' is not supported")
-
-    
-    
+             
