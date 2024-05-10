@@ -11,8 +11,10 @@ def test(loader, model, loss_fn, device, task='binary', binary_decision_threshol
         return test_binary(loader, model, loss_fn, device, decision_threshold=binary_decision_threshold)
     elif task=='regression':
         return test_regression(loader, model, loss_fn, device, target_normalizer=target_normalizer)
+    elif task=='multiclass':
+        raise NotImplementedError(f"'{task}' classification task not implemented yet.")
     else:
-        raise ValueError(f"Unsupported task type '{task}'")
+        raise ValueError(f"Unsupported task type '{task}'.")
 
 
 def test_binary(loader, model, loss_fn, device, decision_threshold=0.5):
