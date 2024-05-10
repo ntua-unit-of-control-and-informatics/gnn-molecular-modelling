@@ -2,7 +2,7 @@ import torch
 import sys
 import torch.nn as nn
 from abc import ABC, abstractmethod
-
+import logging
 
 if '../..' not in sys.path:
     sys.path.append('../..')
@@ -10,11 +10,12 @@ if '../..' not in sys.path:
 from models.graph_convolutional_network import GraphConvolutionalNetwork
 from models.graph_attention_network import GraphAttentionNetwork
 from models.graph_sage_network import GraphSAGENetwork
+from models.graph_transformer_network import GraphTransformerNetwork
 from models.residual_block import Resnet
 
 import warnings
 
-from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
+from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau, LambdaLR
 
 from doa import Leverage
 
@@ -43,7 +44,7 @@ def initialize_graph_model(graph_network_type, model_kwargs):
     Initialize a graph neural network model based on the specified graph network type.
 
     Args:
-    - graph_network_type (str): The type of graph network to initialize. Supported values are 'convolutional', 'attention', and 'sage'.
+    - graph_network_type (str): The type of graph network to initialize. Supported values are 'convolutional', 'attention', and 'sage', 'transformer'.
     - model_kwargs (dict): Keyword arguments to be passed to the graph neural network model constructor.
 
     Returns:
@@ -61,6 +62,8 @@ def initialize_graph_model(graph_network_type, model_kwargs):
         model = GraphAttentionNetwork(**model_kwargs)
     elif graph_network_type=='sage':
         model = GraphSAGENetwork(**model_kwargs)
+    elif graph_network_type=='transformer':
+        model = GraphTransformerNetwork(**model_kwargs)
     else:
         raise ValueError(f"Unsupported graph network type for '{graph_network_type}'")
 
@@ -105,6 +108,8 @@ def initialize_scheduler(scheduler_type, optimizer, scheduler_kwargs):
             milestones = scheduler_kwargs['milestones']
             scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.1)   
             # scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)         
+        case None:
+            scheduler = LambdaLR(optimizer, lr_lambda=lambda epoch: 1)
         case _:
             raise ValueError(f"Unsupported scheduler type '{scheduler_type}'")
         
@@ -162,6 +167,35 @@ class StandardNormalizer(nn.Module):
     
     def __repr__(self):
         return self.__class__.__name__ + f'(mean={self.mean}, std={self.std})'
+
+
+
+
+def log_metrics(task, train_loss, metrics_output_tuple=None):
+
+    if task == 'binary':
+        val_loss, val_metrics, _ = metrics_output_tuple
+        epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
+        epoch_logs += f"Val Loss: {val_loss:.4f}"  + ' | '
+        epoch_logs += f"Accuracy: {val_metrics['accuracy']:.4f}" + ' | '
+        epoch_logs += f"BA: {val_metrics['balanced_accuracy']:.4f}" + ' | '
+        epoch_logs += f"F1: {val_metrics['f1']:.4f}" + ' | '
+        epoch_logs += f"MCC: {val_metrics['mcc']:.4f}" + ' | '
+        epoch_logs += f"ROC_AUC: {val_metrics['roc_auc']:.4f}"
+        logging.info(epoch_logs)
+    elif task == 'regression':
+        val_loss, val_metrics = metrics_output_tuple
+        epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
+        epoch_logs += f"Val Loss: {val_loss:.4f}"  + ' | '
+        epoch_logs += f"Explained Variance: {val_metrics['explained_variance']:.4f}" + ' | '
+        epoch_logs += f"R2: {val_metrics['r2']:.4f}" + ' | '
+        epoch_logs += f"MSE: {val_metrics['mse']:.4f}" + ' | '
+        epoch_logs += f"RMSE: {val_metrics['rmse']:.4f}" + ' | '
+        epoch_logs += f"MAE: {val_metrics['mae']:.4f}" + ' | '
+        logging.info(epoch_logs)
+    else:
+        raise ValueError(f"Unsupported task type '{task}'")
+
 
 
 
