@@ -20,7 +20,7 @@ def get_args_parser():
     # parser.add_argument('--load_model_id', type=int, default=None)
     parser.add_argument('--num_workers', metavar='N', type=int, default=0, help="Sets the number of worker processes for data loading. Default is 0.")
     # parser.add_argument('--evaluation_metric', type=str, default='f1_score')
-    parser.add_argument('--graph_network_type', metavar='GTYPE', type=str, default='attention', choices=['convolutional', 'attention', 'sage'], help="Specifies the type of graph network to use. Choices are 'convolutional', 'attention', or 'sage'. Default is 'attention.")
+    parser.add_argument('--graph_network_type', metavar='GTYPE', type=str, default='attention', choices=['convolutional', 'attention', 'sage', 'transformer'], help="Specifies the type of graph network to use. Choices are 'convolutional', 'attention', or 'sage'. Default is 'attention.")
     # parser.add_argument('--input_dim', type=int, default=44, help="")
     parser.add_argument('--hidden_dims', metavar='DIM', nargs="+", type=int, default=[32], help="Specifies the dimensions of hidden layers in the neural network. Default is [32].")
     parser.add_argument('--attention_heads', metavar='N', nargs="+", type=int, default=1, help="Specifies the number of attention heads in the attention mechanism for each layer. Default is 1.")
