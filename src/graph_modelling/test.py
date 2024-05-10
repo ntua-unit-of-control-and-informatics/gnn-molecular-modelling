@@ -1,6 +1,8 @@
 import torch.nn.functional as F
 import sklearn.metrics as metrics
 import torch
+from models.graph_attention_network import GraphAttentionNetwork
+from models.graph_transformer_network import GraphTransformerNetwork
 
 
 def test(loader, model, loss_fn, device, task='binary', binary_decision_threshold=0.5, target_normalizer=None):
@@ -27,9 +29,11 @@ def test_binary(loader, model, loss_fn, device, decision_threshold=0.5):
         for _, data in enumerate(loader):
         
             data = data.to(device)
-            
-            outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1)
-            
+            if isinstance(model, GraphAttentionNetwork)  or isinstance(model, GraphTransformerNetwork):
+                outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch, edge_attr=data.edge_attr).squeeze(-1)
+            else:
+                outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1)
+            # outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1)
             probs = F.sigmoid(outputs)
             preds = (probs > decision_threshold).int()
             
@@ -69,7 +73,10 @@ def test_regression(loader, model, loss_fn, device, target_normalizer=None):
         
             data = data.to(device)
             
-            outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1)
+            if isinstance(model, GraphAttentionNetwork) or isinstance(model, GraphTransformerNetwork):
+                outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch, edge_attr=data.edge_attr).squeeze(-1)
+            else:
+                outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1)
 
             all_preds.extend(outputs.tolist())
             all_true.extend(data.y.tolist())
