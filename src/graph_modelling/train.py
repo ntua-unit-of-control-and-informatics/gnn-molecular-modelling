@@ -1,4 +1,7 @@
 from tqdm import tqdm
+from models.graph_attention_network import GraphAttentionNetwork
+from models.graph_transformer_network import GraphTransformerNetwork
+import torch
 
 # Train function
 def train(epoch, n_epochs, loader, model, loss_fn, optimizer, device, use_tqdm=True):
@@ -14,9 +17,10 @@ def train(epoch, n_epochs, loader, model, loss_fn, optimizer, device, use_tqdm=T
         data = data.to(device)
         
         optimizer.zero_grad()
-
-        outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1)
-         
+        if isinstance(model, GraphAttentionNetwork) or isinstance(model, GraphTransformerNetwork):
+            outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch, edge_attr=data.edge_attr).squeeze(-1)
+        else:
+            outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1)
         loss = loss_fn(outputs.float(), data.y.float())
     
 
