@@ -93,6 +93,6 @@ The project requires the following Python packages:
 - **NumPy**: Version 1.24.1
 - **Pandas**: Version 1.5.3
 - **Torch**: Version 2.0.0+cu117
-- **Torch** Geometric: Version 2.4.0
+- **Torch Geometric**: Version 2.4.0
 - **Tqdm**: Version 4.64.1
 - **Scikit-learn**: Version 1.4.1
