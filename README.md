@@ -22,7 +22,6 @@ Project_dir/
     ├── data/
     ├── experiments/
     ├── models/
-    ├── notebooks/
     └── src/
 ```
 
@@ -35,8 +34,29 @@ The models/ directory contains class implementations for different types of grap
 These implementations provide a flexible framework for constructing and training GNNs, allowing users to experiment with different architectures and hyperparameters to suit their specific needs.
 
 ## Data Directory
-In the notebooks/ directory, the naming convention for notebooks follows the pattern `{category}_[...].ipynb`, where `{category}` serves as a prefix indicating the corresponding data directory. The `[...]` represents any arbitrary suffix. An example is given below:
+A `data/` directory is expected to be included in the project's root directory. This directory is intended to store datasets for different molecular properties (endpoints). 
 
+Each property is organized into its own subdirectory, and dataset files follow a consistent naming convention:
+- **Subdirectory Format**: Dataset subdirectories should follow the format `data/{property}/`
+- **Naming Convention**: Dataset files should follow the format {property}_dataset.csv
+
+An example is given below:
+
+```
+data/
+├── propertyA/
+│   └── propertyA_dataset.csv
+├── propertyB/
+│   └── propertyB_dataset.csv
+│
+└── ...
+```
+
+
+<!-- In the notebooks/ directory, the naming convention for notebooks follows the pattern `{category}_[...].ipynb`, where `{category}` serves as a prefix indicating the corresponding data directory. The `[...]` represents any arbitrary suffix. An example is given below:
+
+ -->
+<!-- 
 ```
 Project_dir/
 │
@@ -54,7 +74,7 @@ Project_dir/
 │   └── other_data_dir/
 │
 └── ...
-```
+``` -->
 
 
 
