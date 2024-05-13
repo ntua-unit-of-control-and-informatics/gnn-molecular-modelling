@@ -89,15 +89,15 @@ if __name__ == '__main__':
     working_dir = Path.cwd()
     filename = f'{args.endpoint_name}_dataset.csv'
     if args.data_dir:
-        data_dir = Path(args.args.data_dir).resolve()
+        data_dir = Path(args.data_dir).resolve()
     else:
-        data_dir = working_dir.parent.parent/'data'/args.endpoint_name
+        data_dir = working_dir.parent/'data'/args.endpoint_name
     dataset_filepath = data_dir/filename
 
 
 
     model_dir_prefix = "Model_"
-    experiments_dir = working_dir.parent.parent/'experiments'/'graph_models'/args.endpoint_name
+    experiments_dir = working_dir.parent/'experiments'/args.endpoint_name
 
 
     if not args.inference: 

@@ -91,9 +91,9 @@ If `data_dir` is provided by the user, the script will search for the CSV file i
 
 ## Experiments Directory
 
-During training, logs and metadata from the user's trained models are stored in an experiments directory. If the directory does not exist, it is created as `../../experiments/graph_models`.
+During training, logs and metadata from the user's trained models are stored in an experiments directory. If the directory does not exist, it is created as `../../experiments`.
 
-Each set of experiments is specific to the corresponding endpoint, with a discrete experiments directory created for each endpoint. For example, the directory structure looks like this: `../../experiments/graph_models/{endpoint_name}`.
+Each set of experiments is specific to the corresponding endpoint, with a discrete experiments directory created for each endpoint. For example, the directory structure looks like this: `../../experiments/{endpoint_name}`.
 
 
 Within each endpoint-specific directory, there are individual directories for each model trained for that endpoint. These directories are named sequentially, such as `/Model_1`, `/Model_2`, and so on, with `{model_id}` indicating the unique identifier for each model.
@@ -109,15 +109,14 @@ Inside each model directory, the following logs and metadata are stored:
 ### Experiments Directory Structure
 ```
 experiments/
-└── graph_models/
-    ├── {endpoint_name}/
-    │   ├── Model_1/
-    │   ├── Model_2/
-    │   └── ...
-    ├── {another_endpoint_name}/
-    │   ├── Model_1/
-    │   └── ...
-    └── ...
+├── {endpoint_name}/
+│   ├── Model_1/
+│   ├── Model_2/
+│   └── ...
+├── {another_endpoint_name}/
+│   ├── Model_1/
+│   └── ...
+└── ...
 ```
 
 

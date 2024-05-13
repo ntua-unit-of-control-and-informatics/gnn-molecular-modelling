@@ -5,8 +5,8 @@ from pathlib import Path
 
 # if '../..' not in sys.path:
 #     sys.path.append('../..')
-if str(Path(__file__).resolve().parent.parent.parent) not in sys.path:
-    sys.path.append(str(Path(__file__).resolve().parent.parent.parent) )
+# if str(Path(__file__).resolve().parent.parent.parent) not in sys.path:
+#     sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 # from utils.utils import class_balanced_random_split
 

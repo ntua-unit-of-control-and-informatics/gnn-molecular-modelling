@@ -26,7 +26,7 @@ Project_dir/
 ```
 
 ## Source Code
-The `src/graph_modelling/` directory contains the source code for training Graph Neural Networks (GNNs) using SMILES representations of molecules. For more detailed information about the source code and its usage, please refer to the internal README file located inside the `src/graph_modelling/` directory.
+The `src/` directory contains the source code for training Graph Neural Networks (GNNs) using SMILES representations of molecules. For more detailed information about the source code and its usage, please refer to the internal README file located inside the `src/` directory.
 
 ## Models Implementation
 The models/ directory contains class implementations for different types of graph neural networks (GNNs), designed to be easily configurable.
