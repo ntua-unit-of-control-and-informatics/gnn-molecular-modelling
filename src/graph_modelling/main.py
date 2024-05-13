@@ -1,9 +1,10 @@
 from arguments import get_args_parser, validate_arguments
-from dataloaders import read_data, stratified_random_split_regression, endpoint_target_mean_std
+from dataloaders import read_data, stratified_random_split_regression, endpoint_target_mean_std, class_balanced_random_split
 from train import train
 from test import test
-from utilities import initialize_graph_model, initialize_optimizer, check_gpu_availability, initialize_scheduler, initialize_doa, StandardNormalizer
-from doa import GraphEmbeddingSpaceDoA, Leverage
+from utilities import initialize_graph_model, initialize_optimizer, check_gpu_availability, initialize_scheduler, initialize_doa, log_metrics
+from utilities import StandardNormalizer, LabelSmoothingBCEWithLogitsLoss
+# from doa import GraphEmbeddingSpaceDoA, Leverage
 
 from pathlib import Path
 import sys
@@ -39,8 +40,9 @@ if '../..' not in sys.path:
 
 # from models.graph_convolutional_network import GraphConvolutionalNetwork
 # from models.graph_attention_network import GraphAttentionNetwork
-from utils.utils import class_balanced_random_split
-from utils.loss import LabelSmoothingBCEWithLogitsLoss
+
+# from utils.utils import class_balanced_random_split
+# from utils.loss import LabelSmoothingBCEWithLogitsLoss
 
 from rdkit import RDLogger
 lg = RDLogger.logger()
@@ -59,17 +61,21 @@ if __name__ == '__main__':
     args = get_args_parser().parse_args()
     args = validate_arguments(args)
 
+    # Set seeds for reproducibility
+    random.seed(args.seed)
+    np.random.seed(args.seed)
 
-    if args.inference:
-        args.load_model_filepath = Path(args.load_model_filepath).resolve()
+
+    # if args.inference:
+    #     inference()
+    #     args.load_model_filepath = Path(args.load_model_filepath).resolve()
+
 
 
     if args.inference:
         raise NotImplementedError("Inference mode not implemented yet.")
 
-    # Set seeds for reproducibility
-    random.seed(args.seed)
-    np.random.seed(args.seed)
+    
 
     
     # Dirs
@@ -154,8 +160,11 @@ if __name__ == '__main__':
                                                             task=args.task,
                                                             target_normalizer=target_normalizer)
     featurizer.save_config(new_model_dir/'featurizer_config.pkl')
+    featurizer.save(new_model_dir/'featurizer.pkl')
     input_dim = train_val_dataset[0].x.shape[1]
-
+    edge_dim = train_val_dataset[0].edge_attr.shape[1]
+    if edge_dim == 0:
+        edge_dim = None
     
 
 
@@ -174,7 +183,6 @@ if __name__ == '__main__':
     # Logging Arguments
     logging.info("\nArguments:")
     logging.info('\n'.join(f'- {k}: {v}' for k, v in vars(args).items()))
-    # logging.info('\n'.join(f'args.{k}={v}' for k, v in vars(args).items()))
     logging.info('\n')
 
 
@@ -198,6 +206,7 @@ if __name__ == '__main__':
     # Network kwargs
     model_kwargs = {
                 'input_dim': input_dim,
+                'edge_dim': edge_dim,
                 'hidden_dims': args.hidden_dims,
                 'heads': args.attention_heads,
                 'output_dim': 1,
@@ -214,6 +223,7 @@ if __name__ == '__main__':
         'eps': args.adam_epsilon
     }
 
+    scheduler_type = None #'multistep'
     milestone_percentages = [0.8, 0.98]
     milestones = [int(percent * args.n_epochs) for percent in milestone_percentages]
     scheduler_kwargs = {'milestones': milestones}
@@ -233,7 +243,7 @@ if __name__ == '__main__':
 
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
-            scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
+            scheduler = initialize_scheduler(scheduler_type, optimizer, scheduler_kwargs)
 
             # best_epoch = 1
             # optimization_metric = 'f1'
@@ -248,7 +258,11 @@ if __name__ == '__main__':
 
             train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
             val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
-
+            # if fold_idx != args.cv_folds-1:
+            #     ddddd = {'precision':0, 'roc_auc':0, 'recall':0, 'mcc':0, 'accuracy':0, 'loss':0, 'f1':0, 'balanced_accuracy':0}
+            #     val_metrics_all[fold_idx].append(ddddd)
+                
+                # continue
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, use_tqdm=not args.no_tqdm)
                 val_output = test(val_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
@@ -256,29 +270,9 @@ if __name__ == '__main__':
 
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
 
-                if args.task == 'binary':
-                    val_loss, val_metrics, _ = val_output
-                    epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
-                    epoch_logs += f"Val Loss: {val_loss:.4f}"  + ' | '
-                    epoch_logs += f"Accuracy: {val_metrics['accuracy']:.4f}" + ' | '
-                    epoch_logs += f"BA: {val_metrics['balanced_accuracy']:.4f}" + ' | '
-                    epoch_logs += f"F1: {val_metrics['f1']:.4f}" + ' | '
-                    epoch_logs += f"MCC: {val_metrics['mcc']:.4f}" + ' | '
-                    epoch_logs += f"ROC_AUC: {val_metrics['roc_auc']:.4f}"
-                    logging.info(epoch_logs)
-                elif args.task == 'regression':
-                    val_loss, val_metrics = val_output
-                    epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
-                    epoch_logs += f"Val Loss: {val_loss:.4f}"  + ' | '
-                    epoch_logs += f"Explained Variance: {val_metrics['explained_variance']:.4f}" + ' | '
-                    epoch_logs += f"R2: {val_metrics['r2']:.4f}" + ' | '
-                    epoch_logs += f"MSE: {val_metrics['mse']:.4f}" + ' | '
-                    epoch_logs += f"RMSE: {val_metrics['rmse']:.4f}" + ' | '
-                    epoch_logs += f"MAE: {val_metrics['mae']:.4f}" + ' | '
-                    logging.info(epoch_logs)
-                else:
-                    raise ValueError(f"Unsupported task type '{args.task}'")
+                log_metrics(args.task, train_loss, val_output)
                 
+                val_loss, val_metrics = val_output[0], val_output[1]
                 train_losses[fold_idx, epoch-1] = train_loss
                 val_losses[fold_idx, epoch-1] = val_loss
                 val_metrics_all[fold_idx].append(val_metrics)
@@ -312,7 +306,7 @@ if __name__ == '__main__':
         if args.val_split_percentage == 0: # only train-test
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
-            scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
+            scheduler = initialize_scheduler(scheduler_type, optimizer, scheduler_kwargs)
 
             train_losses = np.zeros((1, args.n_epochs))
             train_loader = DataLoader(train_val_dataset, batch_size=args.batch_size, shuffle=True)
@@ -320,7 +314,7 @@ if __name__ == '__main__':
             for epoch in range(1, args.n_epochs + 1):
                 train_loss = train(epoch, args.n_epochs, train_loader, model, loss_fn, optimizer, device, not args.no_tqdm)
                 train_losses[0, epoch-1] = train_loss
-                train_output = test(train_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
+                # train_output = test(train_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
 
                 epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
@@ -334,14 +328,15 @@ if __name__ == '__main__':
             model_scripted = torch.jit.script(model)
             model_scripted.save(new_model_dir/'model_scripted.pt')
             
-            doa = initialize_doa(args.doa)
-            doa.fit(train_loader, model, device)
-            doa.save(new_model_dir/'doa.pkl')
+            # doa = initialize_doa(args.doa)
+            # doa.fit(train_loader, model, device)
+            # doa.save(new_model_dir/'doa.pkl')
+
             
         else: # train-val-test
             model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
             optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
-            scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
+            scheduler = initialize_scheduler(scheduler_type, optimizer, scheduler_kwargs)
 
             if args.task == 'binary':
                 train_index, val_index, _, _ = class_balanced_random_split(X=list(range(len(train_val_dataset))), y=[d.y for d in train_val_dataset], seed=args.seed, test_ratio_per_class=args.val_split_percentage)
@@ -370,29 +365,9 @@ if __name__ == '__main__':
                 # val_metrics_all.append(val_metrics)
                 logging.info(f"Epoch [{epoch}/{args.n_epochs}]:")
                 
-                if args.task == 'binary':
-                    val_loss, val_metrics, _ = val_output
-                    epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
-                    epoch_logs += f"Val Loss: {val_loss:.4f}"  + ' | '
-                    epoch_logs += f"Accuracy: {val_metrics['accuracy']:.4f}" + ' | '
-                    epoch_logs += f"BA: {val_metrics['balanced_accuracy']:.4f}" + ' | '
-                    epoch_logs += f"F1: {val_metrics['f1']:.4f}" + ' | '
-                    epoch_logs += f"MCC: {val_metrics['mcc']:.4f}" + ' | '
-                    epoch_logs += f"ROC_AUC: {val_metrics['roc_auc']:.4f}"
-                    logging.info(epoch_logs)
-                elif args.task == 'regression':
-                    val_loss, val_metrics = val_output
-                    epoch_logs = "  " + f"Train Loss: {train_loss:.4f}" + ' | '
-                    epoch_logs += f"Val Loss: {val_loss:.4f}"  + ' | '
-                    epoch_logs += f"Explained Variance: {val_metrics['explained_variance']:.4f}" + ' | '
-                    epoch_logs += f"R2: {val_metrics['r2']:.4f}" + ' | '
-                    epoch_logs += f"MSE: {val_metrics['mse']:.4f}" + ' | '
-                    epoch_logs += f"RMSE: {val_metrics['rmse']:.4f}" + ' | '
-                    epoch_logs += f"MAE: {val_metrics['mae']:.4f}" + ' | '
-                    logging.info(epoch_logs)
-                else:
-                    raise ValueError(f"Unsupported task type '{args.task}'")
+                log_metrics(args.task, train_loss, val_output)
                 
+                val_loss, val_metrics = val_output[0], val_output[1]
                 train_losses[epoch-1] = train_loss
                 val_losses[epoch-1] = val_loss
                 val_metrics_all.append(val_metrics)
@@ -408,12 +383,10 @@ if __name__ == '__main__':
             # torch.save(model.state_dict(), new_model_dir/'checkpoint.pt')
             model_scripted = torch.jit.script(model)
             model_scripted.save(new_model_dir/'model_scripted.pt')
-            
-            doa = doa = initialize_doa(args.doa)
-            doa.fit(train_loader, model, device)
-            doa.save(new_model_dir/'doa.pkl')
-            
-            
+
+            # doa = initialize_doa(args.doa)
+            # doa.fit(train_loader, model, device)
+            # doa.save(new_model_dir/'doa.pkl')
 
 
 
@@ -424,7 +397,7 @@ if __name__ == '__main__':
         logging.info("\nRefitting model on both Train and Validation data...\n")
         model = initialize_graph_model(args.graph_network_type, model_kwargs).to(device)
         optimizer = initialize_optimizer(args.optimizer, model.parameters(), optimizer_kwargs)
-        scheduler = initialize_scheduler('multistep', optimizer, scheduler_kwargs)
+        scheduler = initialize_scheduler(scheduler_type, optimizer, scheduler_kwargs)
 
         refit_train_losses = np.zeros(args.n_epochs)
         train_loader = DataLoader(train_val_dataset, batch_size=args.batch_size, shuffle=True)
@@ -449,8 +422,8 @@ if __name__ == '__main__':
     # checkpoint = torch.load(model_checkpoint_path)
     # print(model.load_state_dict(checkpoint))
     test_output = test(test_loader, model, loss_fn, device, task=args.task, target_normalizer=target_normalizer)
-    # h_train, _ = doa.check_applicability_domain_with_model(train_loader, model, device)
-    # h_test, _ = doa.check_applicability_domain_with_model(test_loader, model, device)
+    # _ = doa.check_applicability_domain_with_model(train_loader, model, device)
+    # _ = doa.check_applicability_domain_with_model(test_loader, model, device)
 
     # import numpy as np
     # import matplotlib.pyplot as plt
@@ -523,7 +496,7 @@ if __name__ == '__main__':
             logging.info(f"\nTime taken: {days} days, {hours} hours, {minutes} minutes, and {seconds} seconds.")
         elif hours > 0:
             logging.info(f"\nTime taken: {hours} hours, {minutes} minutes, and {seconds} seconds.")
-        elif minutes > 0:
+        else:
             logging.info(f"\nTime taken: {minutes} minutes, and {seconds} seconds.")
 
 

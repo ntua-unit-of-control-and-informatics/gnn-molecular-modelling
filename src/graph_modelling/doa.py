@@ -63,8 +63,13 @@ class Leverage(GraphEmbeddingSpaceDoA):
                 data = data.to(device)
                 embeddings = model._forward_graph(x=data.x, edge_index=data.edge_index, batch=data.batch)
                 XTX += embeddings.T @ embeddings
-
-        self._XTX_inv = torch.linalg.inv(XTX)
+        # print(XTX.shape)
+        # print(embeddings[:, 17])
+        # print(embeddings[0])
+        try:
+            self._XTX_inv = torch.linalg.inv(XTX)
+        except torch._C._LinAlgError:
+            self._XTX_inv = torch.linalg.pinv(XTX)
         
         if initial_training_state:
             model.train()
@@ -114,7 +119,8 @@ class Leverage(GraphEmbeddingSpaceDoA):
 
     def check_applicability_domain_with_model(self, data_loader, model, device):
         h = self.compute_leverage_with_model(data_loader, model, device)
-        is_in_doa = h.lt(self.threshold)       
+        is_in_doa = h.lt(self.threshold)
+        # print(sum(is_in_doa)/len(is_in_doa))    
         return is_in_doa
 
 

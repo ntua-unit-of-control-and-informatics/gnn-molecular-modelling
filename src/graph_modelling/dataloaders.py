@@ -8,7 +8,7 @@ from pathlib import Path
 if str(Path(__file__).resolve().parent.parent.parent) not in sys.path:
     sys.path.append(str(Path(__file__).resolve().parent.parent.parent) )
 
-from utils.utils import class_balanced_random_split
+# from utils.utils import class_balanced_random_split
 
 import torch
 from torch_geometric.data import Data
@@ -21,6 +21,92 @@ from sklearn.model_selection import train_test_split
 import warnings
 import json
 import pickle
+
+import numpy as np
+import random
+
+
+def class_balanced_random_split(X, y, test_ratio_per_class=0.15, seed=None):
+    """
+    Class-balanced dataset split into train and test partitions.
+
+    Args:
+        X (array-like): array-like of data input data points
+        y (array-like): array-like of labels
+        seed (int, optional): Random seed (Default: None)
+        test_ratio_per_class (float, optional): Percentage of test samples per class (Default: 0.15)
+
+    Returns:
+        (tuple):
+            * X_train (array-like): array-list of train data points
+            * X_test (array-like): array-list of test data points
+            * y_train (array-like): array-like list of train labels
+            * y_test (array-like): array-like of test labels
+    """
+
+
+    if isinstance(y, list):
+        idx2label = y
+    elif isinstance(y, pd.DataFrame):
+        idx2label = y.iloc[:, 0].tolist()
+    elif isinstance(y, np.ndarray):
+        idx2label = y
+    else:
+        raise TypeError(f"Unsupported type for y: {type(y)}")
+
+
+    class_indices = {}
+    for idx, label in enumerate(idx2label):
+        if label not in class_indices:
+            class_indices[label] = []
+        class_indices[label].append(idx)
+
+
+    train_indices = []
+    test_indices = []
+    for label, indices in class_indices.items():
+        if len(indices) > 1:
+            train_idx, test_idx = train_test_split(indices, test_size=test_ratio_per_class, random_state=seed)
+        else:
+            train_idx, test_idx = indices.copy(), []
+        train_indices.extend(train_idx)
+        test_indices.extend(test_idx)
+    
+    random.shuffle(train_indices)
+    random.shuffle(test_indices)
+
+
+    if isinstance(X, list):
+        X_train = [X[i] for i in train_indices]
+        X_test = [X[i] for i in test_indices]
+    elif isinstance(X, pd.DataFrame):
+        X_train = X.iloc[train_indices]
+        X_test = X.iloc[test_indices]
+        X_train.reset_index(inplace=True, drop=True)
+        X_test.reset_index(inplace=True, drop=True)
+    elif isinstance(X, np.ndarray):
+        X_train = X[train_indices]
+        X_test = X[test_indices]
+    else:
+        raise TypeError(f"Unsupported type for X: {type(X)}")
+
+
+    if isinstance(y, list):
+        y_train = [y[i] for i in train_indices]
+        y_test = [y[i] for i in test_indices]
+    elif isinstance(y, pd.DataFrame):
+        y_train = y.iloc[train_indices]
+        y_test = y.iloc[test_indices]
+        y_train.reset_index(inplace=True, drop=True)
+        y_test.reset_index(inplace=True, drop=True)
+    elif isinstance(y, np.ndarray):
+        y_train = y[train_indices]
+        y_test = y[test_indices]
+    else:
+        raise TypeError(f"Unsupported type for y: {type(y)}")
+
+
+    return X_train, X_test, y_train, y_test
 
 
 def stratified_random_split_regression(df, num_bins, stratify_column, test_size=0.15, seed=None):
@@ -36,18 +122,14 @@ def stratified_random_split_regression(df, num_bins, stratify_column, test_size=
     
     return df_train, df_test
 
-def endpoint_target_mean_std(endpoint_name):
 
+def endpoint_target_mean_std(endpoint_name):
     match endpoint_name:
         case 'hc20':
             return -0.123, 1.421
         case _:
             # warnings.warn(f"No mean and std available for target variable '{endpoint_name}'. Defaulting to mean=0.0, std=1.0")
             return 0.0, 1.0
-
-
-
-
 
 
 def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task, target_normalizer=None, shuffle=True):
@@ -104,7 +186,7 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
 
 
     Symb , Hs , Impv , Fc , Hb , ExpV , Deg = set() , set() , set() , set() , set() , set() , set()
-    bond_type , conj = set() , set()
+    Bonds = set() 
 
     TDeg = set()
     Chtag = set()
@@ -123,94 +205,67 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
             Chtag.add(atom.GetChiralTag())
             
         for bond in Chem.MolFromSmiles(smile).GetBonds():
-            bond_type.add(bond.GetBondType())
-            conj.add(bond.GetIsConjugated())
+            Bonds.add(bond.GetBondType())
     
-    # Symb.add('Zzzzzzzzz')
-    # Symb.add('Ga')
-    Symbols = sorted(Symb)
-    # import random
-    # Symbols = random.sample(Symbols, 20) + ['UNK']
-    # SYMBOLS = ['C', 'O', 'N', 'Cl', 'S', 'Na', 'P', 'F', 'Br', 'Si', 'K', 'Sn', 'Zn', 'I', 'Ca', 'Al', 'Cu', 'Li', 'B', 'Mn', 'Co', 'Cr', 'As', 'Ni', 'Pb', 'Ba', 'V', 'Ti', 'Hg', 'Fe', 'Cd', 'Mo', 'Mg', 'W', 'Sr', 'H', 'Ag', 'Zr', 'Sb', 'Se', 'La', 'Ce', 'Bi', 'Te', 'Cs', 'Tl', 'Sm', 'Y', 'Re', 'Ge', 'Nd', 'Be']
 
-    # Symbols = SYMBOLS[:15] + ['UNK']
+    Symbols = sorted(Symb)
     Degree = sorted(Deg)
     TDegree = sorted(TDeg)
     Hs_Atoms = sorted(Hs)
     Implicit_Val = sorted(Impv)
-    Formal_Charge = sorted(Fc)
     Explicit_Val = sorted(ExpV)
+    Formal_Charge = sorted(Fc)
     Hybridization = sorted(Hb)
     ChiralTag = sorted(Chtag)
-    
-    structural_data = (Symbols, Degree, Hs_Atoms, Implicit_Val, Formal_Charge, Explicit_Val, Hybridization)
-    
 
-    atom_characteristics = [
-        'symbol',
-        'degree',
-        'total_degree',
-        'total_num_hs',
-        'implicit_valence',
-        'formal_charge',
-        'explicit_valence',
-        'hybridization',
-        'is_aromatic',
-        'is_in_ring',
-        'mass',
-        # 'chiral_tag'
-        # "_ChiralityPossible"
-        # '_CIPCode'
-    ]
+    BondTypes = sorted(Bonds)
 
+    # structural_data = (Symbols, Degree, Hs_Atoms, Implicit_Val, Formal_Charge, Explicit_Val, Hybridization)
+    
     atom_allowable_set = {
         'symbol': Symbols,
         'degree': Degree,
-        'total_degree': TDegree,
+        # 'total_degree': TDegree,
         'total_num_hs': Hs_Atoms,
         'implicit_valence': Implicit_Val,
-        'formal_charge': [0, -1, 1, 2, 'UNK'],
+        'formal_charge': Formal_Charge,
         'explicit_valence': Explicit_Val,
         'hybridization': Hybridization,
+        'is_aromatic': None,
+        # 'is_in_ring': None,
+        # 'mass': None,
         # 'chiral_tag': ChiralTag
         # '_CIPCode': ['R','S']
     }
 
+    bond_allowable_sets = {
+        # "bond_type": BondTypes, # could be of type UNSPECIFIED
+        "bond_type": [Chem.rdchem.BondType.SINGLE,
+                      Chem.rdchem.BondType.DOUBLE,
+                      Chem.rdchem.BondType.TRIPLE,
+                      Chem.rdchem.BondType.AROMATIC], 
+        "is_conjugated": None,
+        "is_in_ring": None,
+    }
+
     featurizer = SmilesGraphFeaturizer(include_edge_features=True, warnings_enabled=False)
 
-    featurizer.set_atom_characteristics(atom_characteristics)
     featurizer.set_atom_allowable_sets(atom_allowable_set)
+    featurizer.set_bond_allowable_sets(bond_allowable_sets)
 
-    # featurizer.set_bond_characteristics(bond_characteristics)
-    # featurizer.set_bond_allowable_sets(bond_allowable_sets)
-
-    featurizer.save_config("featurizer_config.pkl")
+    # featurizer.save_config("featurizer_config.pkl")
 
     train_dataset = SmilesGraphDataset(X_train, y_train, featurizer=featurizer)
     train_dataset.precompute_featurization()
+
+    # for i, f in enumerate(train_dataset.get_atom_feature_labels()):
+    #     print(i, ":", f)
 
     test_dataset = SmilesGraphDataset(X_test, y_test, featurizer=featurizer)
     test_dataset.precompute_featurization()
         # test_dataset = SmilesGraphDataset(X_test, y_test).config_from_other_dataset(train_dataset)
 
     return train_dataset, test_dataset, featurizer
-
-
-# class SmilesGraphFeaturizer():
-
-#     def __init__(self, include_edge_features=True):
-#         pass
-
-#     def set_default_config(self):
-#         pass
-
-#     self.atom_allowable_sets = {}
-#     self.bond_allowable_sets = {}
-#     self.atom_characteristics = []
-#     self.bond_characteristics = []
-
-
-
 
 
 class SmilesGraphFeaturizer():
@@ -265,74 +320,99 @@ class SmilesGraphFeaturizer():
         
         self.atom_allowable_sets = {}
         self.bond_allowable_sets = {}
-        self.atom_characteristics = []
-        self.bond_characteristics = []
+        
     
+    def get_supported_atom_characteristics(self):
+        return self.SUPPORTED_ATOM_CHARACTERISTICS.keys()
+    
+    def get_supported_bond_characteristics(self):
+        return self.SUPPORTED_BOND_CHARACTERISTICS.keys()
     
     def config_from_other_featurizer(self, featurizer):
         
-        self.include_edge_features=featurizer.include_edge_features
+        self.include_edge_features = featurizer.include_edge_features
         
-        self.warnings_enabled=featurizer.warnings_enabled
+        self.warnings_enabled = featurizer.warnings_enabled
         
-        self.set_atom_characteristics(featurizer.atom_characteristics)
         self.set_atom_allowable_sets(featurizer.atom_allowable_sets)
 
-        self.set_bond_characteristics(featurizer.bond_characteristics)
         self.set_bond_allowable_sets(featurizer.bond_allowable_sets)
         
         return self
         
     
-    def set_atom_characteristics(self, atom_characteristics):
-        for key in atom_characteristics:
-            if key not in self.SUPPORTED_ATOM_CHARACTERISTICS.keys(): 
-                raise ValueError(f"Invalid atom characteristic '{key}'")
-        self.atom_characteristics = list(atom_characteristics)
+    # def set_atom_characteristics(self, atom_characteristics):
+    #     for key in atom_characteristics:
+    #         if key not in self.SUPPORTED_ATOM_CHARACTERISTICS.keys(): 
+    #             raise ValueError(f"Invalid atom characteristic '{key}'")
+    #     self.atom_characteristics = list(atom_characteristics)
         
         
-    def set_bond_characteristics(self, bond_characteristics):
-        for key in bond_characteristics:
-            if key not in self.SUPPORTED_BOND_CHARACTERISTICS.keys(): 
-                raise ValueError(f"Invalid bond characteristic '{key}'")
-        self.bond_characteristics = list(bond_characteristics)
+    # def set_bond_characteristics(self, bond_characteristics):
+    #     for key in bond_characteristics:
+    #         if key not in self.SUPPORTED_BOND_CHARACTERISTICS.keys(): 
+    #             raise ValueError(f"Invalid bond characteristic '{key}'")
+    #     self.bond_characteristics = list(bond_characteristics)
     
     
     def set_atom_allowable_sets(self, atom_allowable_sets_dict):
-        for key in atom_allowable_sets_dict.keys():
-            
-            if key not in self.SUPPORTED_ATOM_CHARACTERISTICS.keys(): 
-                raise ValueError(f"Unsupported atom characteristic '{key}'")
-            
-            if not isinstance(atom_allowable_sets_dict[key], (list, tuple)):
-                raise TypeError("Input dictionary must have values of type list or tuple.")
-
-            if key in self.NON_ONE_HOT_ENCODED:
-                self.warning(f"Atom allowable set given for '{key}' will be ignored")
-            else:
-                self.atom_allowable_sets[key] = list(atom_allowable_sets_dict[key])
-    
+        
+        self.atom_allowable_sets = dict()
+        for atom_characteristic, allowable_set in atom_allowable_sets_dict.items():
+            self.add_atom_characteristic(atom_characteristic, allowable_set)
     
     def set_bond_allowable_sets(self, bond_allowable_sets_dict):
-        for key in bond_allowable_sets_dict.keys():
-            
-            if key not in self.SUPPORTED_BOND_CHARACTERISTICS.keys(): 
-                raise ValueError(f"Unsupported bond characteristic '{key}'")
-            
-            if not isinstance(bond_allowable_sets_dict[key], (list, tuple)):
-                raise TypeError("Input dictionary must have values of type list or tuple.")
+        
+        self.bond_allowable_sets = dict()
+        for bond_characteristic, allowable_set in bond_allowable_sets_dict.items():
+            self.add_bond_characteristic(bond_characteristic, allowable_set)
 
-            if key in self.NON_ONE_HOT_ENCODED:
-                self.warning(f"Bond allowable set given for '{key}' will be ignored")
-            else:
-                self.bond_allowable_sets[key] = list(bond_allowable_sets_dict[key])
+    def add_atom_characteristic(self, atom_characteristic, allowable_set=None):
+
+        if atom_characteristic not in self.get_supported_atom_characteristics():
+            raise ValueError(f"Unsupported atom characteristic '{atom_characteristic}'")
+        
+        if atom_characteristic in self.atom_allowable_sets.keys():
+            self.warning(f"The atom allowable set for '{atom_characteristic}' will be overwritten.")
+
+        if atom_characteristic in self.NON_ONE_HOT_ENCODED:
+            if allowable_set is not None:
+                self.warning(f"Atom allowable set given for '{atom_characteristic}' will be ignored (not one-hot encoded)")
+            self.atom_allowable_sets[atom_characteristic] = None
+        else:
+            if allowable_set is None:
+                self.warning(f"The atom allowable set for '{atom_characteristic}' is set to default.")
+                allowable_set = self.get_default_atom_allowable_set(atom_characteristic)
+            elif not isinstance(allowable_set, (list, tuple)):
+                raise TypeError("Input dictionary must have values of type list, tuple or None.")
+            self.atom_allowable_sets[atom_characteristic] = list(allowable_set)
+
+    def add_bond_characteristic(self, bond_characteristic, allowable_set=None):
+
+        if bond_characteristic not in self.get_supported_bond_characteristics():
+            raise ValueError(f"Unsupported bond characteristic '{bond_characteristic}'")
+        
+        if bond_characteristic in self.bond_allowable_sets.keys():
+            self.warning(f"The bond allowable set for '{bond_characteristic}' will be overwritten.")
+
+        if bond_characteristic in self.NON_ONE_HOT_ENCODED:
+            if allowable_set is not None:
+                self.warning(f"Bond allowable set given for '{bond_characteristic}' will be ignored (not one-hot encoded)")
+            self.bond_allowable_sets[bond_characteristic] = None
+        else:
+            if allowable_set is None:
+                self.warning(f"The bond allowable set for '{bond_characteristic}' is set to default.")
+                allowable_set = self.get_default_bond_allowable_set(bond_characteristic)
+            if not isinstance(allowable_set, (list, tuple)):
+                raise TypeError("Input dictionary must have values of type list, tuple or None.")
+            self.bond_allowable_sets[bond_characteristic] = list(allowable_set)
     
 
     def get_atom_feature_labels(self):
         
         atom_feature_labels = []
         
-        for characteristic in self.atom_characteristics:
+        for characteristic in self.atom_allowable_sets.keys():
             if characteristic in self.NON_ONE_HOT_ENCODED:
                 atom_feature_labels.append(characteristic)
             else:
@@ -345,7 +425,7 @@ class SmilesGraphFeaturizer():
         
         bond_feature_labels = []
         
-        for characteristic in self.bond_characteristics:
+        for characteristic in self.bond_allowable_sets.keys():
             if characteristic in self.NON_ONE_HOT_ENCODED:
                 bond_feature_labels.append(characteristic)
             else:
@@ -353,53 +433,66 @@ class SmilesGraphFeaturizer():
         
         return bond_feature_labels
     
-    
-    def set_default_config(self):
-        
-        atom_characteristics = [
-            "symbol",
-            "degree",
-            "hybridization",
-            "total_num_hs",
-            "explicit_valence",
-            "is_aromatic",
-            "_ChiralityPossible",
-            "formal_charge",
-            # "num_radical_electrons"   
-        ]
-        
-        bond_characteristics = [
-            "bond_type",
-            "is_conjugated",
-            "is_in_ring",
-        ]
-        
-        self.set_atom_characteristics(atom_characteristics)
-        self.set_bond_characteristics(bond_characteristics)
 
+    def get_default_atom_allowable_set(self, atom_characteristic):
+        match atom_characteristic:
+            case "symbol":
+                return ['C', 'O', 'N', 'Cl', 'S', 'F', 'Na', 'P', 'Br', 'Si', 'K', 'Sn', 'UNK'],
+            case "degree":
+                return [2, 1, 3, 4, 0]
+            case "hybridization":
+                return [Chem.rdchem.HybridizationType.SP2,
+                        Chem.rdchem.HybridizationType.SP3,
+                        Chem.rdchem.HybridizationType.S,
+                        Chem.rdchem.HybridizationType.SP]
+            case "total_num_hs":
+                return [0, 1, 2, 3]
+            case "implicit_valence":
+                return [0, 1, 2, 3, 4]
+            case "explicit_valence":
+                return [4, 2, 3, 1, 0, 'UNK']
+            case "formal_charge":
+                return [0, -1, 1, 'UNK']
+            case _:
+                raise ValueError(f"No default allowable set for atom characteristic '{atom_characteristic}'. You must set your own allowable set.")
+
+    
+    def get_default_bond_allowable_set(self, bond_characteristic):
+        match bond_characteristic:
+            case "bond_type":
+                return [Chem.rdchem.BondType.SINGLE,
+                        Chem.rdchem.BondType.DOUBLE,
+                        Chem.rdchem.BondType.TRIPLE,
+                        Chem.rdchem.BondType.AROMATIC]
+            case _:
+                raise ValueError(f"No default allowable set for bond characteristic '{bond_characteristic}'. You must set your own allowable set.")
         
+
+    def set_default_config(self):
+
         atom_allowable_sets = {
-            "symbol": ['C', 'O', 'N', 'Cl', 'S', 'F', 'Na', 'P', 'Br', 'Si', 'K', 'Sn', 'UNK'],
-            "degree": [2, 1, 3, 4, 0],
-            "hybridization": [Chem.rdchem.HybridizationType.SP2,
-                              Chem.rdchem.HybridizationType.SP3,
-                              Chem.rdchem.HybridizationType.S,
-                              Chem.rdchem.HybridizationType.SP],
-            "total_num_hs": [0, 1, 2, 3],
-            "implicit_valence": [0, 1, 2, 3, 4],
-            "explicit_valence": [4, 2, 3, 1, 0, 'UNK'],
-            "formal_charge": [0, -1, 1, 'UNK'],
+            "symbol": self.get_default_atom_allowable_set("symbol"),
+            "degree": self.get_default_atom_allowable_set("degree"),
+            "hybridization": self.get_default_atom_allowable_set("hybridization"),
+            "total_num_hs": self.get_default_atom_allowable_set("total_num_hs"),
+            "implicit_valence": self.get_default_atom_allowable_set("implicit_valence"),
+            "explicit_valence": self.get_default_atom_allowable_set("explicit_valence"),
+            "is_aromatic": None,
+            "_ChiralityPossible": None,
+            "formal_charge": self.get_default_atom_allowable_set("formal_charge"),
         }
-        
+
         bond_allowable_sets = {
-            "bond_type": [Chem.rdchem.BondType.SINGLE,
-                          Chem.rdchem.BondType.AROMATIC,
-                          Chem.rdchem.BondType.DOUBLE,
-                          Chem.rdchem.BondType.TRIPLE],
+            "bond_type": self.get_default_bond_allowable_set("bond_type"),
+            "is_conjugated": None,
+            "is_in_ring": None,
         }
-        
+
+
         self.set_atom_allowable_sets(atom_allowable_sets)
-        self.set_bond_allowable_sets(bond_allowable_sets)
+
+        if self.include_edge_features:
+            self.set_bond_allowable_sets(bond_allowable_sets)
     
     
     def extract_molecular_features(self, mol):
@@ -415,6 +508,7 @@ class SmilesGraphFeaturizer():
         mol_bond_features = []
         for bond in mol.GetBonds():
             mol_bond_features.append(self.bond_features(bond))
+            mol_bond_features.append(self.bond_features(bond)) # do twice (undirectional graph)
         mol_bond_features = torch.tensor(mol_bond_features, dtype=torch.float32)
         
         return mol_atom_features, mol_bond_features
@@ -423,7 +517,7 @@ class SmilesGraphFeaturizer():
     def atom_features(self, atom):
         
         feats = []
-        for characteristic in self.atom_characteristics:
+        for characteristic in self.atom_allowable_sets.keys():
             property_getter = self.SUPPORTED_ATOM_CHARACTERISTICS[characteristic]
             feat = property_getter(atom)
             
@@ -442,7 +536,7 @@ class SmilesGraphFeaturizer():
     def bond_features(self, bond):
 
         feats = []
-        for characteristic in self.bond_characteristics:
+        for characteristic in self.bond_allowable_sets.keys():
             property_getter = self.SUPPORTED_BOND_CHARACTERISTICS[characteristic]
             feat = property_getter(bond)
             
@@ -517,9 +611,7 @@ class SmilesGraphFeaturizer():
         config = {
             'warnings_enabled': self.warnings_enabled,
             'include_edge_features': self.include_edge_features,
-            'atom_characteristics': self.atom_characteristics,
             'atom_allowable_sets': self.atom_allowable_sets,
-            'bond_characteristics': self.bond_characteristics,
             'bond_allowable_sets': self.bond_allowable_sets,
         }
 
@@ -535,13 +627,16 @@ class SmilesGraphFeaturizer():
         self.warnings_enabled = config['warnings_enabled']
         self.include_edge_features = config['include_edge_features']
 
-        self.set_atom_characteristics(config['atom_characteristics'])
         self.set_atom_allowable_sets(config['atom_allowable_sets'])
 
-        self.set_bond_characteristics(config['bond_characteristics'])
         self.set_bond_allowable_sets(config['bond_allowable_sets'])
 
         return self
+    
+
+    def save(self, filepath='featurizer.pkl'):
+        with open(filepath, "wb") as file:
+            pickle.dump(self, file)
     
 
     def __call__(self, sm, y=None):
@@ -550,21 +645,18 @@ class SmilesGraphFeaturizer():
 
     def __repr__(self):
         attributes = {
-            'atom_characteristics': self.atom_characteristics,
             'atom_allowable_sets': self.atom_allowable_sets,
-            'bond_characteristics': self.bond_characteristics,
             'bond_allowable_sets': self.bond_allowable_sets,
         }
         return json.dumps(attributes, indent=4)
     
-
-
     def __str__(self):
         return self.__repr__()
 
+
 class SmilesGraphDataset(Dataset):
 
-    def __init__(self, smiles, y, featurizer=None):
+    def __init__(self, smiles, y=None, featurizer=None):
         super(SmilesGraphDataset, self).__init__()
         
         self.smiles = smiles
@@ -593,7 +685,10 @@ class SmilesGraphDataset(Dataset):
         
         
     def precompute_featurization(self):
-        self.precomputed_features = [self.featurizer(sm, y) for sm, y, in zip(self.smiles, self.y)]
+        if self.y:
+            self.precomputed_features = [self.featurizer(sm, y) for sm, y, in zip(self.smiles, self.y)]
+        else:
+            self.precomputed_features = [self.featurizer(sm) for sm in self.smiles]
 
         
     def get_num_node_features(self):
@@ -610,7 +705,8 @@ class SmilesGraphDataset(Dataset):
             return self.precomputed_features[idx]
         
         sm = self.smiles[idx]
-        y = self.y[idx]
+        y = self.y[idx] if self.y else None
+
         
         return self.featurizer(sm, y)
 
@@ -618,89 +714,3 @@ class SmilesGraphDataset(Dataset):
     def __len__(self):
         return len(self.smiles)
     
-
-
-# def atom_feature(atom, structural_data):
-    
-#     inverse_hybridization_names = {v: k for k, v in Chem.rdchem.HybridizationType.names.items()}
-    
-#     Symbols, Degree, Hs_Atoms, Implicit_Val, Formal_Charge, Explicit_Val, Hybridization = structural_data
-#     return torch.tensor(one_of_k_encoding_unk(atom.GetSymbol(), Symbols) +
-#                         one_of_k_encoding_unk(atom.GetTotalNumHs(), Hs_Atoms) +
-#                         one_of_k_encoding_unk(atom.GetDegree(), Degree) +
-#                         one_of_k_encoding_unk(atom.GetImplicitValence(), Implicit_Val) +
-#                         one_of_k_encoding_unk(atom.GetFormalCharge(), Formal_Charge) +
-#                         one_of_k_encoding_unk(inverse_hybridization_names[atom.GetHybridization()], Hybridization) +
-#                         one_of_k_encoding_unk(atom.GetExplicitValence(), Explicit_Val) +
-#                         [atom.GetIsAromatic()], dtype=torch.int16)
-
-    
-
-# def one_of_k_encoding(x, allowable_set):
-#     if x not in allowable_set:
-#         raise Exception(f'input{x} not in allowable set{allowable_set}')
-#     return list(map(lambda s: x == s, allowable_set))
-
-# def one_of_k_encoding_unk(x, allowable_set):
-#     if x not in allowable_set:
-#         x = allowable_set[-1]
-#     return list(map(lambda s: x==s, allowable_set))
-
-
-# def nodes_and_adjacency(smile, y, structural_data):
-
-#     mol = Chem.MolFromSmiles(smile)
-#     # Create node Features
-#     feats = []
-#     for atom in mol.GetAtoms():
-#         feats.append(atom_feature(atom, structural_data)) # Get the 5 feats in a single atom of a mol
-#     mol_node_features = torch.stack(feats).float() # Stack them in an array [num_nodes x atom_features]
-
-#     # Create Adjacency Matrix
-#     ix1, ix2 = [], []
-
-#     for bond in mol.GetBonds():
-
-#         start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-#         ix1 += [start, end]
-#         ix2 += [end, start]
-
-#     adj_norm = torch.asarray([ix1, ix2], dtype=torch.int64) # Needs to be in COO Format
-
-#     return Data(x=mol_node_features,
-#                 edge_index=adj_norm,
-#                 y=y)
-    
-
-
-
-
-# class GraphDataset(Dataset):
-
-#     def __init__(self, smiles, y, structural_data, transform=None):
-#         super(GraphDataset, self).__init__()
-        
-#         self.transform = transform
-#         dataset_info = [nodes_and_adjacency(smile, y, structural_data) for smile, y in (zip(smiles, y))]
-
-#         self.df = [info for info in dataset_info]
-#     #     self.smiles = smiles
-    
-#     # def get_smiles(self, idx):
-#     #     return self.smiles[idx]
-        
-#     def __getitem__(self, idx):
-        
-#         data = self.df[idx]
-
-        
-#         if self.transform is not None:
-#             raise NotImplementedError("Haven't implemented or tested transforms")
-#             data = self.transform(data)
-            
-#         return data
-
-#     def __len__(self):
-#         return len(self.df)
-    
-
