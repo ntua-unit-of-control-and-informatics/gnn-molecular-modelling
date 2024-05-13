@@ -21,18 +21,30 @@ def inference(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    args.load_model_dir = Path(args.load_model_dir).resolve()
+    # args.load_model_dir = Path(args.load_model_dir).resolve()
 
-    load_model_filepath = args.load_model_dir/'model_scripted.pt'
-
+    # load_model_filepath = args.load_model_dir/'model_scripted.pt'
+    
 
     working_dir = Path.cwd()
     filename = f'{args.endpoint_name}_dataset.csv'
     if args.data_dir:
-        data_dir = Path(args.args.data_dir).resolve()
+        data_dir = Path(args.data_dir).resolve()
     else:
         data_dir = working_dir.parent/'data'/args.endpoint_name
     dataset_filepath = data_dir/filename
+
+    args.inference_output_dir = working_dir
+    output_filepath = args.inference_output_dir/'inference.csv'
+    
+
+    args.load_model_dir = working_dir.parent/'experiments'/'hc20'/'Model_355'
+    load_model_filepath = args.load_model_dir/'model_scripted.pt'
+
+    print(dataset_filepath)
+    print(load_model_filepath)
+    # exit()
+
 
 
     handlers=[logging.StreamHandler(sys.stdout)]
@@ -63,8 +75,7 @@ def inference(args):
 
 
     model = torch.jit.load(load_model_filepath).to(device)
-
-
+    print(model)
 
     try:
         featurizer_filepath = args.load_model_dir/'featurizer.pkl'
@@ -74,13 +85,15 @@ def inference(args):
         print(e)
         print('TODO Featurizer Exception')
 
-    try:
-        doa_filepath = args.load_model_dir/'doa.pkl'
-        with open(doa_filepath, "rb") as f:
-            doa = pickle.load(f)
-    except Exception as e:
-        print(e)
-        print('TODO Featurizer Exception')
+    # try:
+    #     doa_filepath = args.load_model_dir/'doa.pkl'
+    #     with open(doa_filepath, "rb") as f:
+    #         doa = pickle.load(f)
+    # except Exception as e:
+    #     print(e)
+    #     print('TODO DoA Exception')
+
+    print(featurizer)
 
     
     
@@ -88,9 +101,14 @@ def inference(args):
     
     df = pd.read_csv(dataset_filepath)
     smiles = df[['SMILES']].values.ravel().tolist()
+    print(len(smiles))
+    
 
     dataset = SmilesGraphDataset(smiles, featurizer=featurizer)
-    # dataset.precompute_featurization()
+
+    dataset.precompute_featurization()
+    print(featurizer.get_atom_feature_labels())
+
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if check_gpu_availability(not args.no_cuda) else {}
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
@@ -98,28 +116,28 @@ def inference(args):
     
     if args.task=='binary':
         binary_decision_threshold = 0.5 # maybe let this be in args
-        preds = predict_binary(loader, model, device, decision_threshold=binary_decision_threshold, return_probs=False)
+        preds = predict_binary(loader, model, device, args.endpoint_name, decision_threshold=binary_decision_threshold, return_probs=False)
     elif args.task=='regression':
-        preds = predict_regression(loader, model, device, target_normalizer=target_normalizer)
+        preds = predict_regression(loader, model, device, args.endpoint_name, target_normalizer=target_normalizer, output_filepath=output_filepath)
     else:
         raise ValueError(f"Unsupported task type '{args.task}'")
 
 
 
-
+    # print(preds)
     [
         model,
         loader,
         device,
         featurizer,
-        doa,
+        # doa,
     ]
 
 
 
 
 
-def predict_binary(loader, model, loss_fn, device, decision_threshold=0.5, return_probs=False, output_filepath=None):
+def predict_binary(loader, model, device, endpoint_name, decision_threshold=0.5, return_probs=False, output_filepath=None):
 
     all_preds = []
     all_probs = []
@@ -127,12 +145,14 @@ def predict_binary(loader, model, loss_fn, device, decision_threshold=0.5, retur
     if output_filepath is not None:
         f = open(output_filepath, mode='w', newline='')
         writer = csv.writer(f)
+        writer.writerow(['SMILES', endpoint_name])
 
     model.eval()
     with torch.no_grad():
         for _, data in enumerate(loader):
             
             data = data.to(device)
+            smiles = data.smiles
             
             outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1)
             
@@ -143,8 +163,8 @@ def predict_binary(loader, model, loss_fn, device, decision_threshold=0.5, retur
             all_preds.extend(preds.tolist())
 
             if output_filepath is not None:
-                for pred in preds:
-                    writer.writerow([pred])
+                for sm, pred in zip(smiles, preds):
+                    writer.writerow([sm, pred])
     
     if output_filepath is not None:
         f.close()
@@ -155,19 +175,21 @@ def predict_binary(loader, model, loss_fn, device, decision_threshold=0.5, retur
         return all_preds
 
 
-def predict_regression(loader, model, device, target_normalizer=None, output_filepath=None):
+def predict_regression(loader, model, device, endpoint_name, target_normalizer=None, output_filepath=None):
     
     all_preds = []
 
     if output_filepath is not None:
         f = open(output_filepath, mode='w', newline='')
         writer = csv.writer(f)
+        writer.writerow(['SMILES', endpoint_name])
 
     model.eval()
     with torch.no_grad():
         for _, data in enumerate(loader):
 
             data = data.to(device)
+            smiles = data.smiles
             
             outputs = model(x=data.x, edge_index=data.edge_index, batch=data.batch).squeeze(-1) # .cpu()
             
@@ -179,8 +201,8 @@ def predict_regression(loader, model, device, target_normalizer=None, output_fil
                 preds = outputs.tolist()
 
             if output_filepath is not None:
-                for pred in preds:
-                    writer.writerow([pred])
+                for sm, pred in zip(smiles, preds):
+                    writer.writerow([sm, pred])
 
     if output_filepath is not None:
         f.close()
