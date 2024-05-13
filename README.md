@@ -26,15 +26,15 @@ Project_dir/
 ```
 
 
-## Source Code
+### Source Code
 The `src/` directory contains the source code for training Graph Neural Networks (GNNs) using SMILES representations of molecules. For more detailed information about the source code and its usage, please refer to the internal README file located inside the `src/` directory.
 
-## Models Implementation
+### Models Implementation
 The models/ directory contains class implementations for different types of graph neural networks (GNNs), designed to be easily configurable.
 
 These implementations provide a flexible framework for constructing and training GNNs, allowing users to experiment with different architectures and hyperparameters to suit their specific needs.
 
-## Data Directory
+### Data Directory
 A `data/` directory is expected to be included in the project's root directory. This directory is intended to store datasets for different molecular properties (endpoints). 
 
 Each property is organized into its own subdirectory, and dataset files follow a consistent naming convention:
@@ -53,7 +53,7 @@ data/
 └── ...
 ```
 
-## Experiments Directory
+### Experiments Directory
 The `experiments/` directory is where training logs and metadata are stored. For more detailed information about the contents of this directory, please refer to the internal README file located inside the `src/` directory.
 
 
