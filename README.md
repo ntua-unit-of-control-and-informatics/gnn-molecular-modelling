@@ -1,4 +1,4 @@
-# PINK Project: Automated Graph Neural Network Training for Molecular Property Prediction using SMILES Representations
+# Automated Graph Neural Network Training for Molecular Property Prediction from SMILES
 
 
 [Official Python implementation]
