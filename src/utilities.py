@@ -222,3 +222,64 @@ class LabelSmoothingBCEWithLogitsLoss(nn.Module):
         
         return loss
 
+def determine_mode(args):
+        """
+        Determines the mode of operation based on the provided arguments.
+
+        Args:
+            args: An object containing the command-line arguments or configuration parameters. 
+                  It must have the following attributes:
+                  - inference: A boolean indicating whether the mode is for inference.
+                  - cross_validation: A boolean indicating whether cross-validation mode is enabled.
+                  - cv_folds: An integer specifying the number of folds for cross-validation.
+                  - val_split_percentage: A float specifying the percentage for train-validation split.
+                  - refit: A boolean indicating whether the model should be refitted on the entire train-validation set before final testing.
+        Returns:
+            str: The mode of operation among: 'INFERENCE', 'CROSS_VALIDATION', CROSS_VALIDATION_REFIT', 'TRAIN_VAL_TEST', 'TRAIN_VAL_REFIT_TEST', 'TRAIN_TEST'.
+        """
+        if args.inference:
+            return 'INFERENCE'
+        
+        if args.cross_validation:
+            if args.cv_folds <= 1:
+                raise ValueError("Number of cross-validation folds must be greater than 1.")
+            return 'CROSS_VALIDATION_REFIT' if args.refit else 'CROSS_VALIDATION'
+
+        if args.val_split_percentage > 0:
+            return 'TRAIN_VAL_REFIT_TEST' if args.refit else 'TRAIN_VAL_TEST'
+        
+        if args.val_split_percentage == 0:
+            return 'TRAIN_TEST'
+        
+        raise ValueError("Invalid arguments provided. Check your inputs.")
+
+def mode2id(mode):
+    """
+    Converts a mode string to its corresponding ID.
+
+    Args:
+        mode (str): The mode string to convert.
+    Returns:
+        int: The ID corresponding to the given mode string.
+             - 0 for 'INFERENCE'
+             - 1 for 'CROSS_VALIDATION'
+             - 2 for 'CROSS_VALIDATION_REFIT'
+             - 3 for 'TRAIN_VAL_TEST'
+             - 4 for 'TRAIN_VAL_REFIT_TEST'
+             - 5 for 'TRAIN_TEST'
+    """
+    match mode:
+        case 'INFERENCE':
+            return 0
+        case 'CROSS_VALIDATION':
+            return 1
+        case 'CROSS_VALIDATION_REFIT':
+            return 2
+        case 'TRAIN_VAL_TEST':
+            return 3
+        case 'TRAIN_VAL_REFIT_TEST':
+            return 4
+        case 'TRAIN_TEST':
+            return 5
+        case _:
+            raise ValueError(f"Invalid mode {mode}")
