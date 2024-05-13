@@ -604,7 +604,8 @@ class SmilesGraphFeaturizer():
         return Data(x=mol_atom_features,
                     edge_index=adjacency_matrix,
                     edge_attr=mol_bond_features,
-                    y=y)
+                    y=y,
+                    smiles=sm)
         
     
     def save_config(self, config_file="featurizer_config.pkl"):
