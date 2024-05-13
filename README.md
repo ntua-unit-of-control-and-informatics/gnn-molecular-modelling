@@ -25,6 +25,7 @@ Project_dir/
     └── src/
 ```
 
+
 ## Source Code
 The `src/` directory contains the source code for training Graph Neural Networks (GNNs) using SMILES representations of molecules. For more detailed information about the source code and its usage, please refer to the internal README file located inside the `src/` directory.
 
@@ -51,6 +52,9 @@ data/
 │
 └── ...
 ```
+
+## Experiments Directory
+The `experiments/` directory is where training logs and metadata are stored. For more detailed information about the contents of this directory, please refer to the internal README file located inside the `src/` directory.
 
 
 <!-- In the notebooks/ directory, the naming convention for notebooks follows the pattern `{category}_[...].ipynb`, where `{category}` serves as a prefix indicating the corresponding data directory. The `[...]` represents any arbitrary suffix. An example is given below:
