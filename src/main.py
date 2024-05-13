@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+if str(Path(__file__).resolve().parent.parent) not in sys.path:
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 from arguments import get_args_parser, validate_arguments
 from dataloaders import read_data, stratified_random_split_regression, endpoint_target_mean_std, class_balanced_random_split
 from train import train
@@ -6,8 +12,7 @@ from utilities import initialize_graph_model, initialize_optimizer, check_gpu_av
 from utilities import StandardNormalizer, LabelSmoothingBCEWithLogitsLoss
 # from doa import GraphEmbeddingSpaceDoA, Leverage
 
-from pathlib import Path
-import sys
+
 import json
 
 
