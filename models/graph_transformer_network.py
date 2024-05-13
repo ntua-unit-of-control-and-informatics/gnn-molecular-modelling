@@ -1,6 +1,6 @@
 import torch.nn as nn
 from typing import Optional, Iterable, Union
-from torch_geometric.nn import GATConv
+from torch_geometric.nn import TransformerConv
 from torch_geometric.nn import GraphNorm, BatchNorm, GraphSizeNorm, InstanceNorm, LayerNorm
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 import torch.nn.init as init
@@ -8,7 +8,7 @@ from torch import Tensor
 from torch_geometric.typing import OptTensor
 
 
-class GraphAttentionBlock(nn.Module):
+class GraphTransformerBlock(nn.Module):
 
     def __init__(self,
                  input_dim: int,
@@ -22,11 +22,11 @@ class GraphAttentionBlock(nn.Module):
                  *args,
                  **kwargs):
         
-        super(GraphAttentionBlock, self).__init__()
+        super(GraphTransformerBlock, self).__init__()
         
         self.jittable = jittable
-        
-        self.hidden_layer = GATConv(input_dim, hidden_dim, heads, edge_dim=edge_dim)
+
+        self.hidden_layer = TransformerConv(input_dim, hidden_dim, heads, edge_dim=edge_dim)
 
         if jittable:
             self.hidden_layer = self.hidden_layer.jittable()
@@ -57,7 +57,7 @@ class GraphAttentionBlock(nn.Module):
 
 
 
-class GraphAttentionNetwork(nn.Module):
+class GraphTransformerNetwork(nn.Module):
 
     def __init__(self,
                  input_dim: int,
@@ -73,7 +73,7 @@ class GraphAttentionNetwork(nn.Module):
                  *args,
                  **kwargs):
     
-        super(GraphAttentionNetwork, self).__init__()
+        super(GraphTransformerNetwork, self).__init__()
                 
         # Input types check
         if not isinstance(input_dim, int):
@@ -130,6 +130,7 @@ class GraphAttentionNetwork(nn.Module):
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
         self.heads = [heads]*len(hidden_dims) if isinstance(heads, int) else heads
+        self.edge_dim = edge_dim
         self.output_dim = output_dim
         self.dropout_probabilities = [dropout]*len(hidden_dims) if isinstance(dropout, float) else dropout
         self.graph_norm = graph_norm
@@ -138,10 +139,10 @@ class GraphAttentionNetwork(nn.Module):
 
 
         self.graph_layers = nn.ModuleList() 
-        graph_layer = GraphAttentionBlock(input_dim, hidden_dims[0],
+        graph_layer = GraphTransformerBlock(input_dim, hidden_dims[0],
                                           heads=self.heads[0],
-                                          edge_dim=edge_dim,
                                           activation=activation,
+                                          edge_dim=edge_dim,
                                           dropout_probability=self.dropout_probabilities[0],
                                           graph_norm=graph_norm,
                                           jittable=jittable)
@@ -149,10 +150,10 @@ class GraphAttentionNetwork(nn.Module):
 
         
         for i in range(len(hidden_dims) - 1):
-            graph_layer = GraphAttentionBlock(hidden_dims[i]*self.heads[i], hidden_dims[i+1],
+            graph_layer = GraphTransformerBlock(hidden_dims[i]*self.heads[i], hidden_dims[i+1],
                                               heads=self.heads[i+1],
-                                              activation=activation,
                                               edge_dim=edge_dim,
+                                              activation=activation,
                                               dropout_probability=self.dropout_probabilities[i],
                                               graph_norm=graph_norm,
                                               jittable=jittable)

@@ -1,20 +1,17 @@
 import torch.nn as nn
 from typing import Optional, Iterable, Union
-from torch_geometric.nn import GATConv
-from torch_geometric.nn import GraphNorm, BatchNorm, GraphSizeNorm, InstanceNorm, LayerNorm
+from torch_geometric.nn import SAGEConv
+from torch_geometric.nn import GraphNorm, BatchNorm, GraphSizeNorm, InstanceNorm, LayerNorm, Set2Set
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 import torch.nn.init as init
 from torch import Tensor
-from torch_geometric.typing import OptTensor
 
 
-class GraphAttentionBlock(nn.Module):
+class GraphSAGEBlock(nn.Module):
 
     def __init__(self,
                  input_dim: int,
                  hidden_dim: int,
-                 heads: Optional[int] = 1,
-                 edge_dim: Optional[int] = None,
                  activation: Optional[nn.Module] = nn.ReLU(),
                  dropout_probability: float = 0.5,
                  graph_norm: Optional[bool] = False,
@@ -22,21 +19,25 @@ class GraphAttentionBlock(nn.Module):
                  *args,
                  **kwargs):
         
-        super(GraphAttentionBlock, self).__init__()
-        
-        self.jittable = jittable
-        
-        self.hidden_layer = GATConv(input_dim, hidden_dim, heads, edge_dim=edge_dim)
+        super(GraphSAGEBlock, self).__init__()
 
-        if jittable:
+        self.jittable = jittable
+
+        self.hidden_layer = SAGEConv(input_dim, hidden_dim)
+        
+        if self.jittable:
             self.hidden_layer = self.hidden_layer.jittable()
 
         self.graph_norm = graph_norm
         if self.graph_norm:
-            self.gn_layer = GraphNorm(hidden_dim*heads)
+            self.gn_layer = GraphNorm(hidden_dim)
+            # self.gn_layer = BatchNorm(hidden_dim)
+            # self.gn_layer = GraphSizeNorm()
+            # self.gn_layer = InstanceNorm(hidden_dim)
+            # self.gn_layer = LayerNorm(hidden_dim)
         else:
             self.gn_layer = None
-            
+
         self.activation = activation
         self.dropout = nn.Dropout(p=dropout_probability)
         
@@ -44,26 +45,24 @@ class GraphAttentionBlock(nn.Module):
     def forward(self,
                 x: Tensor,
                 edge_index: Tensor,
-                batch: Optional[Tensor],
-                edge_attr: OptTensor = None) -> Tensor:
+                batch: Optional[Tensor]) -> Tensor:
 
-        x = self.hidden_layer(x, edge_index, edge_attr=edge_attr)
+        x = self.hidden_layer(x, edge_index)
         if self.gn_layer is not None:
             x = self.gn_layer(x, batch)
+            # x = self.gn_layer(x)
         x = self.activation(x)
         x = self.dropout(x)
-
+ 
         return x
+                
 
 
-
-class GraphAttentionNetwork(nn.Module):
+class GraphSAGENetwork(nn.Module):
 
     def __init__(self,
                  input_dim: int,
                  hidden_dims: Iterable[int],
-                 heads: int = Union[int, Iterable[int]],
-                 edge_dim: Optional[int] = None,
                  output_dim: Optional[int] = 1,
                  activation: Optional[nn.Module] = nn.ReLU(),
                  dropout: Union[float, Iterable[float]] = 0.5,
@@ -73,7 +72,7 @@ class GraphAttentionNetwork(nn.Module):
                  *args,
                  **kwargs):
     
-        super(GraphAttentionNetwork, self).__init__()
+        super(GraphSAGENetwork, self).__init__()
                 
         # Input types check
         if not isinstance(input_dim, int):
@@ -85,20 +84,6 @@ class GraphAttentionNetwork(nn.Module):
             raise ValueError("hidden_dims must not be empty")
         if not all(isinstance(hidden_dim, int) for hidden_dim in hidden_dims):
             raise TypeError("hidden_dims must only contain integers")
-        
-        if not (isinstance(heads, int) or isinstance(heads, Iterable)):
-            raise TypeError("heads must be either of type int or Iterable")
-        if isinstance(heads, int):
-            if heads <= 0:
-                raise ValueError("heads must be between greater than 0")
-        if isinstance(heads, Iterable):
-            for item in heads:
-                if not isinstance(item, int):
-                    raise TypeError("heads list must only contain integers")
-                if item <= 0:
-                    raise ValueError("Each element in the heads list must be between greater than 0")
-            if len(heads) != len(hidden_dims):
-                raise ValueError("hidden_dims and heads must be of same size") 
 
         if not isinstance(output_dim, int):
             raise TypeError("output_dim must be of type int")
@@ -129,7 +114,6 @@ class GraphAttentionNetwork(nn.Module):
 
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
-        self.heads = [heads]*len(hidden_dims) if isinstance(heads, int) else heads
         self.output_dim = output_dim
         self.dropout_probabilities = [dropout]*len(hidden_dims) if isinstance(dropout, float) else dropout
         self.graph_norm = graph_norm
@@ -137,43 +121,38 @@ class GraphAttentionNetwork(nn.Module):
         self.jittable = jittable
 
 
-        self.graph_layers = nn.ModuleList() 
-        graph_layer = GraphAttentionBlock(input_dim, hidden_dims[0],
-                                          heads=self.heads[0],
-                                          edge_dim=edge_dim,
-                                          activation=activation,
-                                          dropout_probability=self.dropout_probabilities[0],
-                                          graph_norm=graph_norm,
-                                          jittable=jittable)
+        self.graph_layers = nn.ModuleList()
+        graph_layer = GraphSAGEBlock(input_dim, hidden_dims[0],
+                                     activation=activation,
+                                     dropout_probability=self.dropout_probabilities[0],
+                                     graph_norm=graph_norm,
+                                     jittable=jittable)
         self.graph_layers.append(graph_layer)
+        
 
-        
         for i in range(len(hidden_dims) - 1):
-            graph_layer = GraphAttentionBlock(hidden_dims[i]*self.heads[i], hidden_dims[i+1],
-                                              heads=self.heads[i+1],
-                                              activation=activation,
-                                              edge_dim=edge_dim,
-                                              dropout_probability=self.dropout_probabilities[i],
-                                              graph_norm=graph_norm,
-                                              jittable=jittable)
+            graph_layer = GraphSAGEBlock(hidden_dims[i], hidden_dims[i+1],
+                                         activation=activation,
+                                         dropout_probability=self.dropout_probabilities[i],
+                                         graph_norm=graph_norm,
+                                         jittable=jittable)
             self.graph_layers.append(graph_layer)
-    
         
+        # self.aggr = Set2Set(hidden_dims[-1], processing_steps=4)
         # Initialise Fully Connected Layer
-        self.fc = nn.Linear(hidden_dims[-1]*self.heads[-1], output_dim)
+        self.fc = nn.Linear(hidden_dims[-1], output_dim)
 
         # Apply Xavier initialization to fc
         init.xavier_uniform_(self.fc.weight)
         init.zeros_(self.fc.bias)
-    
-    
+
+
     def forward(self,
                 x: Tensor,
                 edge_index: Tensor,
-                batch: Optional[Tensor],
-                edge_attr: OptTensor = None) -> Tensor:
-        
-        x = self._forward_graph(x, edge_index, batch, edge_attr=edge_attr)
+                batch: Optional[Tensor]) -> Tensor:
+
+        x = self._forward_graph(x, edge_index, batch)
         x = self.fc(x)
         return x
     
@@ -181,11 +160,11 @@ class GraphAttentionNetwork(nn.Module):
     def _forward_graph(self,
                        x: Tensor,
                        edge_index: Tensor,
-                       batch: Optional[Tensor],
-                       edge_attr: OptTensor = None) -> Tensor:
-
+                       batch: Optional[Tensor]) -> Tensor:
+    
         for graph_layer in self.graph_layers:
-            x = graph_layer(x, edge_index, batch=batch, edge_attr=edge_attr)
+            x = graph_layer(x, edge_index, batch)
+        # x = self.aggr(x, batch)
         x = self._pooling_function(x, batch)
         return x
     
@@ -202,4 +181,3 @@ class GraphAttentionNetwork(nn.Module):
             return global_max_pool(x, batch)
         else:
             raise NotImplementedError(f"Pooling operation '{self.pooling}' is not supported")
-             

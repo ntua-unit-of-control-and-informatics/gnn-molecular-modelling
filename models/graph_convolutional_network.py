@@ -1,9 +1,57 @@
 import torch.nn as nn
 from typing import Optional, Iterable, Union
-import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, GraphNorm
+from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GraphNorm, BatchNorm, GraphSizeNorm, InstanceNorm, LayerNorm
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 import torch.nn.init as init
+from torch import Tensor
+
+
+class GraphConvBlock(nn.Module):
+
+    def __init__(self,
+                 input_dim: int,
+                 hidden_dim: int,
+                 activation: Optional[nn.Module] = nn.ReLU(),
+                 dropout_probability: float = 0.5,
+                 graph_norm: Optional[bool] = False,
+                 jittable: Optional[bool] = True,
+                 *args,
+                 **kwargs):
+        
+        super(GraphConvBlock, self).__init__()
+
+        self.jittable = jittable
+
+        self.hidden_layer = GCNConv(input_dim, hidden_dim)
+        
+        if self.jittable:
+            self.hidden_layer = self.hidden_layer.jittable()
+
+        self.graph_norm = graph_norm
+        if self.graph_norm:
+            self.gn_layer = GraphNorm(hidden_dim)
+        else:
+            self.gn_layer = None
+
+        self.activation = activation
+        self.dropout = nn.Dropout(p=dropout_probability)
+        
+    
+    def forward(self,
+                x: Tensor,
+                edge_index: Tensor,
+                batch: Optional[Tensor]) -> Tensor:
+
+        x = self.hidden_layer(x, edge_index)
+        if self.gn_layer is not None:
+            x = self.gn_layer(x, batch)
+        x = self.activation(x)
+        x = self.dropout(x)
+ 
+        return x
+
+
 
 class GraphConvolutionalNetwork(nn.Module):
 
@@ -15,6 +63,7 @@ class GraphConvolutionalNetwork(nn.Module):
                  dropout: Union[float, Iterable[float]] = 0.5,
                  graph_norm: Optional[bool] = False,
                  pooling: Optional[str] = 'mean',
+                 jittable: Optional[bool] = True,
                  *args,
                  **kwargs):
         
@@ -61,52 +110,62 @@ class GraphConvolutionalNetwork(nn.Module):
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
         self.output_dim = output_dim
-        self.activation = activation
         self.dropout_probabilities = [dropout]*len(hidden_dims) if isinstance(dropout, float) else dropout
         self.graph_norm = graph_norm
         self.pooling = pooling
+        self.jittable = jittable
         
         
-        # Initialise GCNConv Layers
-        self.conv_layers = nn.ModuleList()
-        self.conv_layers.append(GCNConv(input_dim, hidden_dims[0]))
-            
+        self.graph_layers = nn.ModuleList()
+        graph_layer = GraphConvBlock(input_dim, hidden_dims[0],
+                                     activation=activation,
+                                     dropout_probability=self.dropout_probabilities[0],
+                                     graph_norm=graph_norm,
+                                     jittable=jittable)
+        self.graph_layers.append(graph_layer)
+          
+        
         for i in range(len(hidden_dims) - 1):
-            hidden_layer = GCNConv(hidden_dims[i], hidden_dims[i+1])
-            self.conv_layers.append(hidden_layer)
-        
-        
-        # Initialise Graph Norm Layers
-        if graph_norm:
-            self.gn_layers = nn.ModuleList()
-            for hidden_dim in hidden_dims:
-                gn_layer = GraphNorm(hidden_dim)
-                self.gn_layers.append(gn_layer)
-            
+            graph_layer = GraphConvBlock(hidden_dims[i], hidden_dims[i+1],
+                                         activation=activation,
+                                         dropout_probability=self.dropout_probabilities[i],
+                                         graph_norm=graph_norm,
+                                         jittable=jittable)
+            self.graph_layers.append(graph_layer)
+
+
         # Initialise Fully Connected Layer
         self.fc = nn.Linear(hidden_dims[-1], output_dim)
-        
+
         # Apply Xavier initialization to fc
         init.xavier_uniform_(self.fc.weight)
-        init.zeros_(self.fc.bias)    
+        init.zeros_(self.fc.bias)
 
 
-    def forward(self, x, edge_index, batch):
+    def forward(self,
+                x: Tensor,
+                edge_index: Tensor,
+                batch: Optional[Tensor]) -> Tensor:
 
-        for i, conv_layer in enumerate(self.conv_layers):
-            x = conv_layer(x, edge_index)
-            if self.graph_norm:
-                x = self.gn_layers[i](x, batch)
-            x = self.activation(x)
-            x = F.dropout(x, p=self.dropout_probabilities[i], training=self.training)
-        
-        x = self._pooling_function(x, batch)
+        x = self._forward_graph(x, edge_index, batch)
         x = self.fc(x)
+        return x
+    
 
+    def _forward_graph(self,
+                       x: Tensor,
+                       edge_index: Tensor,
+                       batch: Optional[Tensor]) -> Tensor:
+    
+        for graph_layer in self.graph_layers:
+            x = graph_layer(x, edge_index, batch)
+        x = self._pooling_function(x, batch)
         return x
     
     
-    def _pooling_function(self, x, batch):
+    def _pooling_function(self,
+                          x: Tensor, 
+                          batch: Optional[Tensor]) -> Tensor:
 
         if self.pooling == 'add':
             return global_add_pool(x, batch)
@@ -116,5 +175,3 @@ class GraphConvolutionalNetwork(nn.Module):
             return global_max_pool(x, batch)
         else:
             raise NotImplementedError(f"Pooling operation '{self.pooling}' is not supported")
-
-    
