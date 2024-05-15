@@ -96,3 +96,4 @@ The project requires the following Python packages:
 - **Torch Geometric**: Version 2.4.0
 - **Tqdm**: Version 4.64.1
 - **Scikit-learn**: Version 1.4.1
+- **RDKit**: Version 2022.9.5
