@@ -270,14 +270,6 @@ def read_data(dataset_filepath, seed, test_split_percentage, endpoint_name, task
 
 class SmilesGraphFeaturizer():
     
-    @staticmethod
-    def _get_CIPCODE(atom):
-        try:
-            cip = atom.GetProp('_CIPCode')
-        except KeyError:
-            cip = None
-        return cip
-    
     SUPPORTED_ATOM_CHARACTERISTICS = {"symbol": lambda atom: atom.GetSymbol(),
                                       "degree": lambda atom: atom.GetDegree(),
                                       "total_degree": lambda atom: atom.GetTotalDegree(),
@@ -289,7 +281,6 @@ class SmilesGraphFeaturizer():
                                       "total_num_hs": lambda atom: atom.GetTotalNumHs(),
                                       "num_explicit_hs": lambda atom: atom.GetNumExplicitHs(),
                                       "num_implicit_hs": lambda atom: atom.GetNumImplicitHs(),
-                                      "_CIPCode": lambda atom: SmilesGraphDataset._get_CIPCODE(atom),
                                       "_ChiralityPossible": lambda atom: atom.HasProp('_ChiralityPossible'),
                                       "isotope": lambda atom: atom.GetIsotope(),
                                       "total_valence": lambda atom: atom.GetTotalValence(),
@@ -649,7 +640,7 @@ class SmilesGraphFeaturizer():
             'atom_allowable_sets': self.atom_allowable_sets,
             'bond_allowable_sets': self.bond_allowable_sets,
         }
-        return json.dumps(attributes, indent=4)
+        return type(self).__name__ + '(' + json.dumps(attributes, indent=4) + ')'
     
     def __str__(self):
         return self.__repr__()
