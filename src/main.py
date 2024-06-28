@@ -179,11 +179,11 @@ if __name__ == '__main__':
 
 
         # Device
-        device = torch.device('cuda:0' if not check_gpu_availability(not args.no_cuda) else 'cpu')
+        device = torch.device('cuda:0' if check_gpu_availability(not args.no_cuda) else 'cpu')
 
         torch.manual_seed(args.seed)
         if check_gpu_availability(not args.no_cuda):
-            logging.info(f"\nDevice: \n- {torch.cuda.get_device_name()}")
+            logging.info(f"\nDevice: \n- {torch.cuda.get_device_name(device=device)}")
             torch.cuda.manual_seed(args.seed)
         else:
             logging.info(f"\nDevice: {'CPU'}")
